@@ -19,27 +19,73 @@ const Index = () => {
     completed: 0,
     failed: 0
   });
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchStats = async () => {
     if (!userData) return;
     
     try {
-      const { data: extractions, error } = await supabase
-        .from('extractions')
-        .select('status')
-        .eq('user_id', userData.userId);
+      // Vérifier si l'utilisateur est admin
+      const { data: adminRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userData.userId)
+        .eq("role", "admin")
+        .single();
 
-      if (error) throw error;
+      const isAdmin = !!adminRole;
 
-      const statsData = {
-        total: extractions?.length || 0,
-        pending: extractions?.filter((e: any) => e.status === 'pending').length || 0,
-        processing: extractions?.filter((e: any) => e.status === 'processing').length || 0,
-        completed: extractions?.filter((e: any) => e.status === 'completed').length || 0,
-        failed: extractions?.filter((e: any) => e.status === 'failed').length || 0
-      };
+      if (isAdmin) {
+        // Admin voit toutes les statistiques
+        setIsAdmin(true);
+        const { data: allStats, error: statsError } = await supabase.rpc('admin_get_all_stats');
+        
+        if (statsError || !allStats) {
+          // Fallback si la fonction RPC échoue
+          const { data: extractions, error } = await supabase
+            .from('extractions')
+            .select('status');
 
-      setStats(statsData);
+          if (error) throw error;
+
+          const statsData = {
+            total: extractions?.length || 0,
+            pending: extractions?.filter((e: any) => e.status === 'pending').length || 0,
+            processing: extractions?.filter((e: any) => e.status === 'processing').length || 0,
+            completed: extractions?.filter((e: any) => e.status === 'completed').length || 0,
+            failed: extractions?.filter((e: any) => e.status === 'failed').length || 0
+          };
+          setStats(statsData);
+        } else {
+          const statsData = allStats as any;
+          setStats({
+            total: statsData.total || 0,
+            pending: statsData.pending || 0,
+            processing: statsData.processing || 0,
+            completed: statsData.completed || 0,
+            failed: statsData.failed || 0
+          });
+        }
+      } else {
+        setIsAdmin(false);
+        // Utilisateur normal voit seulement ses propres stats
+        const { data: extractions, error } = await supabase
+          .from('extractions')
+          .select('status')
+          .eq('user_id', userData.userId);
+
+        if (error) throw error;
+
+        const statsData = {
+          total: extractions?.length || 0,
+          pending: extractions?.filter((e: any) => e.status === 'pending').length || 0,
+          processing: extractions?.filter((e: any) => e.status === 'processing').length || 0,
+          completed: extractions?.filter((e: any) => e.status === 'completed').length || 0,
+          failed: extractions?.filter((e: any) => e.status === 'failed').length || 0
+        };
+
+        setStats(statsData);
+      }
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -116,6 +162,18 @@ const Index = () => {
       className="bg-gradient-to-br from-background to-muted/20"
     >
       <div className="max-w-7xl mx-auto space-y-6">
+        {/* Indicateur admin */}
+        {isAdmin && (
+          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 bg-blue-600 rounded-full"></div>
+              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Vue administrateur - Statistiques globales de tous les utilisateurs
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Stats rapides */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-card rounded-lg border p-6">

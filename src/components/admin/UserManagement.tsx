@@ -104,23 +104,10 @@ export const UserManagement = () => {
 
   const handleDeleteUser = async (userId: string) => {
     try {
-      // Delete user roles first
-      await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", userId);
-
-      // Delete user extractions
-      await supabase
-        .from("extractions")
-        .delete()
-        .eq("user_id", userId);
-
-      // Delete profile (this will cascade to auth.users due to foreign key)
-      const { error } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("id", userId);
+      // Utiliser la fonction RPC admin pour supprimer l'utilisateur
+      const { data, error } = await supabase.rpc('admin_delete_user', {
+        _user_id: userId
+      });
 
       if (error) throw error;
 

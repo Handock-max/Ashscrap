@@ -136,6 +136,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      admin_delete_user: {
+        Args: {
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      admin_get_all_stats: {
+        Args: {}
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "user"
