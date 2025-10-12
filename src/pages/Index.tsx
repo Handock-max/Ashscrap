@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Header } from "@/components/layout/Header";
+import { PageLayout } from "@/components/layout/AppLayout";
 import { ExtractionForm } from "@/components/dashboard/ExtractionForm";
 import { ExtractionsHistory } from "@/components/dashboard/ExtractionsHistory";
-import { Loader2 } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -33,6 +35,17 @@ const Index = () => {
     };
   }, [navigate]);
 
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      toast.success("Déconnexion réussie");
+      navigate("/auth");
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la déconnexion");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -41,23 +54,24 @@ const Index = () => {
     );
   }
 
+  const logoutButton = (
+    <Button variant="outline" onClick={handleLogout}>
+      <LogOut className="h-4 w-4 mr-2" />
+      Déconnexion
+    </Button>
+  );
+
   return (
-    <div className="min-h-screen gradient-subtle">
-      <Header />
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto space-y-8">
-          <div>
-            <h2 className="text-3xl font-bold mb-2">Dashboard</h2>
-            <p className="text-muted-foreground">
-              Lancez vos extractions et consultez votre historique
-            </p>
-          </div>
-          
-          <ExtractionForm />
-          <ExtractionsHistory />
-        </div>
-      </main>
-    </div>
+    <PageLayout 
+      title="Tableau de bord" 
+      description="Lancez vos extractions et consultez votre historique"
+      actions={logoutButton}
+    >
+      <div className="max-w-6xl mx-auto space-y-8">
+        <ExtractionForm />
+        <ExtractionsHistory />
+      </div>
+    </PageLayout>
   );
 };
 

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Header } from "@/components/layout/Header";
+import { PageLayout } from "@/components/layout/AppLayout";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { BrandingSettings } from "@/components/admin/BrandingSettings";
-import { Loader2 } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 const Admin = () => {
@@ -43,6 +44,17 @@ const Admin = () => {
     checkAdminAccess();
   }, [navigate]);
 
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      toast.success("Déconnexion réussie");
+      navigate("/auth");
+    } catch (error: any) {
+      toast.error(error.message || "Erreur lors de la déconnexion");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -55,35 +67,36 @@ const Admin = () => {
     return null;
   }
 
-  return (
-    <div className="min-h-screen gradient-subtle">
-      <Header />
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto space-y-8">
-          <div>
-            <h2 className="text-3xl font-bold mb-2">Administration</h2>
-            <p className="text-muted-foreground">
-              Gérez les utilisateurs et personnalisez l'application
-            </p>
-          </div>
+  const logoutButton = (
+    <Button variant="outline" onClick={handleLogout}>
+      <LogOut className="h-4 w-4 mr-2" />
+      Déconnexion
+    </Button>
+  );
 
-          <Tabs defaultValue="users" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="users">Utilisateurs</TabsTrigger>
-              <TabsTrigger value="branding">Personnalisation</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="users">
-              <UserManagement />
-            </TabsContent>
-            
-            <TabsContent value="branding">
-              <BrandingSettings />
-            </TabsContent>
-          </Tabs>
-        </div>
-      </main>
-    </div>
+  return (
+    <PageLayout 
+      title="Administration" 
+      description="Gérez les utilisateurs et personnalisez l'application"
+      actions={logoutButton}
+    >
+      <div className="max-w-6xl mx-auto space-y-8">
+        <Tabs defaultValue="users" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="users">Utilisateurs</TabsTrigger>
+            <TabsTrigger value="branding">Personnalisation</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="users">
+            <UserManagement />
+          </TabsContent>
+          
+          <TabsContent value="branding">
+            <BrandingSettings />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </PageLayout>
   );
 };
 
