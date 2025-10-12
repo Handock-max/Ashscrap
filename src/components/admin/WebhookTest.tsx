@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, TestTube, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { WebhookService } from "@/services/webhook";
+import { ExtractionService } from "@/services/webhook";
 
 export const WebhookTest = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -14,11 +14,11 @@ export const WebhookTest = () => {
     timestamp: string;
   } | null>(null);
 
-  const handleTestWebhook = async () => {
+  const handleTestWorker = async () => {
     setIsLoading(true);
 
     try {
-      const result = await WebhookService.testWebhook();
+      const result = await ExtractionService.testWorker();
 
       setLastTest({
         success: result.success,
@@ -27,9 +27,9 @@ export const WebhookTest = () => {
       });
 
       if (result.success) {
-        toast.success("Webhook N8N testé avec succès !");
+        toast.success("Cloudflare Worker testé avec succès !");
       } else {
-        toast.error(`Erreur webhook: ${result.error}`);
+        toast.error(`Erreur Worker: ${result.error}`);
       }
     } catch (error: any) {
       const errorMessage = error.message || "Erreur inconnue";
@@ -38,30 +38,30 @@ export const WebhookTest = () => {
         message: errorMessage,
         timestamp: new Date().toLocaleString('fr-FR'),
       });
-      toast.error(`Erreur test webhook: ${errorMessage}`);
+      toast.error(`Erreur test Worker: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const webhookUrl = import.meta.env.VITE_WEBHOOK;
+  const workerUrl = import.meta.env.VITE_EXTRACTION_WORKER_URL;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <TestTube className="h-5 w-5" />
-          Test Webhook N8N
+          Test Cloudflare Worker
         </CardTitle>
         <CardDescription>
-          Testez la connectivité avec votre instance N8N
+          Testez la connectivité avec le worker d'extraction
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <div className="text-sm font-medium">URL du webhook :</div>
+          <div className="text-sm font-medium">URL du Worker :</div>
           <div className="text-sm text-muted-foreground font-mono bg-muted p-2 rounded">
-            {webhookUrl || "Non configuré (VITE_WEBHOOK)"}
+            {workerUrl || "Non configuré (VITE_EXTRACTION_WORKER_URL)"}
           </div>
         </div>
 
@@ -89,8 +89,8 @@ export const WebhookTest = () => {
 
         <div className="flex gap-2">
           <Button
-            onClick={handleTestWebhook}
-            disabled={isLoading || !webhookUrl}
+            onClick={handleTestWorker}
+            disabled={isLoading || !workerUrl}
             variant="outline"
           >
             {isLoading ? (
@@ -101,17 +101,17 @@ export const WebhookTest = () => {
             ) : (
               <>
                 <TestTube className="mr-2 h-4 w-4" />
-                Tester le webhook
+                Tester le Worker
               </>
             )}
           </Button>
         </div>
 
-        {!webhookUrl && (
+        {!workerUrl && (
           <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-3 rounded">
             <AlertCircle className="h-4 w-4" />
             <span className="text-sm">
-              Configurez la variable VITE_WEBHOOK pour activer les webhooks
+              Configurez la variable VITE_EXTRACTION_WORKER_URL pour activer les extractions
             </span>
           </div>
         )}

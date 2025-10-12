@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { countries } from "@/data/countries";
 import { sectors } from "@/data/sectors";
 import { KeywordsInput } from "./KeywordsInput";
-import { WebhookService } from "@/services/webhook";
+import { ExtractionService } from "@/services/webhook";
 
 export const ExtractionForm = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -48,14 +48,10 @@ export const ExtractionForm = () => {
 
       if (error) throw error;
 
-      // Send webhook to N8N - Point d'entrée du workflow
-      const payload = WebhookService.createExtractionPayload(
+      // Lancer l'extraction via Cloudflare Worker
+      const payload = ExtractionService.createExtractionPayload(
         extraction.id,
-        {
-          id: user.id,
-          email: user.email,
-          full_name: user.user_metadata?.full_name,
-        },
+        user.id,
         {
           country,
           company_type: sector,
@@ -66,12 +62,19 @@ export const ExtractionForm = () => {
         }
       );
 
-      if (WebhookService.validatePayload(payload)) {
-        const webhookResult = await WebhookService.sendExtractionWebhook(payload);
-        if (!webhookResult.success) {
-          console.warn('Webhook N8N échoué:', webhookResult.error);
-          // L'extraction continue même si le webhook échoue
+      if (ExtractionService.validatePayload(payload)) {
+        const extractionResult = await ExtractionService.startExtraction(payload);
+        if (!extractionResult.success) {
+          console.warn('Extraction Worker échoué:', extractionResult.error);
+          toast.error('Erreur lors du démarrage de l\'extraction: ' + extractionResult.error);
+          return;
         }
+        
+        // Démarrer le polling du statut
+        ExtractionService.pollExtractionStatus(extraction.id, (status) => {
+          console.log('Statut extraction:', status);
+          // Ici on pourrait mettre à jour l'UI en temps réel
+        });
       }
 
       toast.success("Extraction lancée avec succès !");

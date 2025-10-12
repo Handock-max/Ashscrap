@@ -165,7 +165,7 @@ const Profile = () => {
               <Button 
                 type="submit" 
                 disabled={isUpdatingProfile || fullName === (profile?.full_name || '')}
-                className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {isUpdatingProfile ? (
                   <>
@@ -276,7 +276,7 @@ const Profile = () => {
               <Button 
                 type="submit" 
                 disabled={isUpdatingPassword || !newPassword || !confirmPassword}
-                className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {isUpdatingPassword ? (
                   <>

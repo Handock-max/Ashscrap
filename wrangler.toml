@@ -1,0 +1,12 @@
+name = "ash-scrap-extraction"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Variables publiques
+[vars]
+BATCH_SIZE = "100"
+
+# Routes (optionnel - si tu as un domaine)
+# [[routes]]
+# pattern = "extraction.ashscrap.com/*"
+# zone_name = "ashscrap.com"
