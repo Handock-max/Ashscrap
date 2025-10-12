@@ -13,6 +13,41 @@ const Admin = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalAdmins: 0,
+    totalExtractions: 0,
+    systemStatus: 'OK'
+  });
+
+  const fetchAdminStats = async () => {
+    try {
+      // Get total users count
+      const { count: usersCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      // Get total admins count
+      const { count: adminsCount } = await supabase
+        .from('user_roles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'admin');
+
+      // Get total extractions count
+      const { count: extractionsCount } = await supabase
+        .from('extractions')
+        .select('*', { count: 'exact', head: true });
+
+      setStats({
+        totalUsers: usersCount || 0,
+        totalAdmins: adminsCount || 0,
+        totalExtractions: extractionsCount || 0,
+        systemStatus: 'OK'
+      });
+    } catch (error) {
+      console.error('Error fetching admin stats:', error);
+    }
+  };
 
   useEffect(() => {
     const checkAdminAccess = async () => {
@@ -38,10 +73,33 @@ const Admin = () => {
       }
 
       setIsAdmin(true);
+      await fetchAdminStats();
       setIsLoading(false);
     };
 
     checkAdminAccess();
+
+    // Subscribe to realtime updates for admin stats
+    const usersChannel = supabase
+      .channel('admin-stats-users')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, fetchAdminStats)
+      .subscribe();
+
+    const rolesChannel = supabase
+      .channel('admin-stats-roles')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_roles' }, fetchAdminStats)
+      .subscribe();
+
+    const extractionsChannel = supabase
+      .channel('admin-stats-extractions')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'extractions' }, fetchAdminStats)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(usersChannel);
+      supabase.removeChannel(rolesChannel);
+      supabase.removeChannel(extractionsChannel);
+    };
   }, [navigate]);
 
   const handleLogout = async () => {
@@ -91,7 +149,7 @@ const Admin = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Utilisateurs</p>
-                <p className="text-2xl font-bold">0</p>
+                <p className="text-2xl font-bold">{stats.totalUsers}</p>
               </div>
               <div className="h-8 w-8 bg-blue-500/10 rounded-full flex items-center justify-center">
                 <Users className="h-4 w-4 text-blue-500" />
@@ -103,7 +161,7 @@ const Admin = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Admins</p>
-                <p className="text-2xl font-bold">1</p>
+                <p className="text-2xl font-bold">{stats.totalAdmins}</p>
               </div>
               <div className="h-8 w-8 bg-purple-500/10 rounded-full flex items-center justify-center">
                 <Shield className="h-4 w-4 text-purple-500" />
@@ -115,7 +173,7 @@ const Admin = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Extractions</p>
-                <p className="text-2xl font-bold">0</p>
+                <p className="text-2xl font-bold">{stats.totalExtractions}</p>
               </div>
               <div className="h-8 w-8 bg-green-500/10 rounded-full flex items-center justify-center">
                 <Download className="h-4 w-4 text-green-500" />
@@ -127,7 +185,7 @@ const Admin = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Système</p>
-                <p className="text-2xl font-bold text-green-600">OK</p>
+                <p className="text-2xl font-bold text-green-600">{stats.systemStatus}</p>
               </div>
               <div className="h-8 w-8 bg-green-500/10 rounded-full flex items-center justify-center">
                 <CheckCircle className="h-4 w-4 text-green-500" />

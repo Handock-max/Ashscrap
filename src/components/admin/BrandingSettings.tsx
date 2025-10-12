@@ -6,14 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useUIStore } from "@/stores/ui-store";
 
 export const BrandingSettings = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [companyName, setCompanyName] = useState("WorkFlow Hub");
-  const [primaryColor, setPrimaryColor] = useState("#3b82f6");
-  const [secondaryColor, setSecondaryColor] = useState("#8b5cf6");
+  const [companyName, setCompanyName] = useState("Ash Scrap");
+  const [primaryColor, setPrimaryColor] = useState("#eab308");
+  const [secondaryColor, setSecondaryColor] = useState("#2563eb");
   const [logoUrl, setLogoUrl] = useState("");
+  const { setBrandingSettings } = useUIStore();
 
   useEffect(() => {
     loadSettings();
@@ -27,9 +29,9 @@ export const BrandingSettings = () => {
         .single();
 
       if (data) {
-        setCompanyName(data.company_name || "WorkFlow Hub");
-        setPrimaryColor(data.primary_color || "#3b82f6");
-        setSecondaryColor(data.secondary_color || "#8b5cf6");
+        setCompanyName(data.company_name || "Ash Scrap");
+        setPrimaryColor(data.primary_color || "#eab308");
+        setSecondaryColor(data.secondary_color || "#2563eb");
         setLogoUrl(data.logo_url || "");
       }
     } catch (error) {
@@ -70,6 +72,19 @@ export const BrandingSettings = () => {
         if (insertError) throw insertError;
       }
 
+      // Update the UI store with new branding settings
+      setBrandingSettings({
+        companyName,
+        primaryColor,
+        secondaryColor,
+        logoUrl
+      });
+
+      // Apply CSS custom properties for real-time theme changes
+      const root = document.documentElement;
+      root.style.setProperty('--primary', primaryColor);
+      root.style.setProperty('--secondary', secondaryColor);
+
       toast.success("Paramètres enregistrés avec succès");
     } catch (error: any) {
       toast.error("Erreur lors de l'enregistrement");
@@ -104,7 +119,7 @@ export const BrandingSettings = () => {
               id="companyName"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="WorkFlow Hub"
+              placeholder="Ash Scrap"
               disabled={isSaving}
             />
           </div>

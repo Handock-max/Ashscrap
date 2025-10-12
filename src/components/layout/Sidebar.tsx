@@ -112,8 +112,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
             {!sidebarCollapsed && (
               <div className="flex flex-col min-w-0">
                 <span className="text-lg font-semibold truncate">
-                  <span className="text-yellow-600">Ash</span>{' '}
-                  <span className="text-blue-500">Scrap</span>
+                  <span style={{ color: brandingSettings.primaryColor }} className="font-bold">Ash</span>{' '}
+                  <span style={{ color: brandingSettings.secondaryColor }} className="font-bold">Scrap</span>
                 </span>
                 <span className="text-xs text-muted-foreground">
                   Extraction de données

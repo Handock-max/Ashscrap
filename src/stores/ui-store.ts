@@ -20,8 +20,8 @@ class UIStore {
     theme: 'system',
     brandingSettings: {
       companyName: 'Ash Scrap',
-      primaryColor: '#3b82f6',
-      secondaryColor: '#64748b'
+      primaryColor: '#eab308',
+      secondaryColor: '#2563eb'
     }
   };
 

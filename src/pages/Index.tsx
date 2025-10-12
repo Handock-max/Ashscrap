@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 import { PageLayout } from "@/components/layout/AppLayout";
 import { ExtractionForm } from "@/components/dashboard/ExtractionForm";
 import { ExtractionsHistory } from "@/components/dashboard/ExtractionsHistory";
@@ -10,7 +11,7 @@ import { toast } from "sonner";
 
 const Index = () => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoading: authLoading, error: authError, signOut } = useAuth();
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -20,10 +21,9 @@ const Index = () => {
   });
 
   const fetchStats = async () => {
+    if (!user) return;
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data: extractions, error } = await supabase
         .from('extractions')
         .select('status')
@@ -33,10 +33,10 @@ const Index = () => {
 
       const statsData = {
         total: extractions?.length || 0,
-        pending: extractions?.filter(e => e.status === 'pending').length || 0,
-        processing: extractions?.filter(e => e.status === 'processing').length || 0,
-        completed: extractions?.filter(e => e.status === 'completed').length || 0,
-        failed: extractions?.filter(e => e.status === 'failed').length || 0
+        pending: extractions?.filter((e: any) => e.status === 'pending').length || 0,
+        processing: extractions?.filter((e: any) => e.status === 'processing').length || 0,
+        completed: extractions?.filter((e: any) => e.status === 'completed').length || 0,
+        failed: extractions?.filter((e: any) => e.status === 'failed').length || 0
       };
 
       setStats(statsData);
@@ -45,36 +45,47 @@ const Index = () => {
     }
   };
 
+  // Redirection si pas connecté
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/auth");
-      } else {
-        await fetchStats();
-        setIsLoading(false);
-      }
-    };
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [authLoading, user, navigate]);
 
-    checkAuth();
+  // Charger les stats quand l'utilisateur est connecté
+  useEffect(() => {
+    if (user) {
+      fetchStats();
+    }
+  }, [user]);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!session) {
-        navigate("/auth");
-      } else if (event === 'SIGNED_IN') {
-        await fetchStats();
-      }
-    });
+  // Subscribe to realtime updates for extractions
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('extractions-stats')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'extractions',
+        },
+        () => {
+          fetchStats();
+        }
+      )
+      .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
-  }, [navigate]);
+  }, [user]);
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await signOut();
       toast.success("Déconnexion réussie");
       navigate("/auth");
     } catch (error: any) {
@@ -82,7 +93,21 @@ const Index = () => {
     }
   };
 
-  if (isLoading) {
+  // Gestion des erreurs d'auth
+  if (authError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <p className="text-sm text-red-500">Erreur de connexion: {authError}</p>
+          <Button onClick={() => navigate("/auth")}>
+            Retour à la connexion
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center space-y-4">
@@ -101,8 +126,8 @@ const Index = () => {
   );
 
   return (
-    <PageLayout 
-      title="Tableau de bord" 
+    <PageLayout
+      title="Tableau de bord"
       description="Bienvenue dans votre espace de travail"
       actions={logoutButton}
       className="bg-gradient-to-br from-background to-muted/20"
@@ -121,7 +146,7 @@ const Index = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-card rounded-lg border p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -133,7 +158,7 @@ const Index = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-card rounded-lg border p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -145,7 +170,7 @@ const Index = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-card rounded-lg border p-6">
             <div className="flex items-center justify-between">
               <div>

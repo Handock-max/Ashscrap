@@ -3,8 +3,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/error";
-import { PageLoader } from "@/components/ui/loading-spinner";
 import { useAuth } from "@/hooks/use-auth";
+import { useBranding } from "@/hooks/use-branding";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
@@ -14,8 +14,16 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const { user, isAdmin, isLoading } = useAuth();
+  const { user, isAdmin, isLoading, error } = useAuth();
   const location = useLocation();
+  
+  // Load branding settings
+  useBranding();
+
+  // Gestion des erreurs d'auth
+  if (error) {
+    return <Navigate to="/auth" replace />;
+  }
 
   if (isLoading) {
     return (
