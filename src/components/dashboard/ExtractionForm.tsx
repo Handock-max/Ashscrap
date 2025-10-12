@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Rocket } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +17,7 @@ export const ExtractionForm = () => {
   const [sector, setSector] = useState("");
   const [companyAge, setCompanyAge] = useState("");
   const [fileFormat, setFileFormat] = useState("");
+  const [minSites, setMinSites] = useState("");
   const [keywords, setKeywords] = useState<string[]>([]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,6 +54,7 @@ export const ExtractionForm = () => {
       setSector("");
       setCompanyAge("");
       setFileFormat("");
+      setMinSites("");
       setKeywords([]);
     } catch (error: any) {
       toast.error(error.message || "Une erreur est survenue");
@@ -129,6 +132,26 @@ export const ExtractionForm = () => {
                   <SelectItem value="excel">Excel</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="minSites">Nombre minimum de sites</Label>
+              <Select value={minSites} onValueChange={setMinSites} disabled={isLoading}>
+                <SelectTrigger id="minSites">
+                  <SelectValue placeholder="Nombre de sites (optionnel)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 site minimum</SelectItem>
+                  <SelectItem value="2-5">2-5 sites</SelectItem>
+                  <SelectItem value="6-10">6-10 sites</SelectItem>
+                  <SelectItem value="11-20">11-20 sites</SelectItem>
+                  <SelectItem value="21-50">21-50 sites</SelectItem>
+                  <SelectItem value="50+">50+ sites</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Filtrer par le nombre de sites/établissements de la franchise ou chaîne
+              </p>
             </div>
           </div>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
 
@@ -26,6 +26,11 @@ export const useAuth = () => {
     error: null
   });
 
+  // Gestion de l'inactivité (15 minutes)
+  const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes en millisecondes
+  const [lastActivity, setLastActivity] = useState(Date.now());
+  const [inactivityTimer, setInactivityTimer] = useState<NodeJS.Timeout | null>(null);
+
   const fetchProfile = async (userId: string) => {
     try {
       // Récupérer le profil
@@ -52,7 +57,7 @@ export const useAuth = () => {
       }
 
       const isAdmin = roles?.some(r => r.role === 'admin') || false;
-      
+
       return {
         ...profile,
         role: isAdmin ? 'admin' as const : 'user' as const
@@ -69,17 +74,17 @@ export const useAuth = () => {
       if (!state.user) {
         setState(prev => ({ ...prev, isLoading: true, error: null }));
       }
-      
+
       const { data: { user }, error } = await supabase.auth.getUser();
-      
+
       if (error) {
-        setState(prev => ({ 
-          ...prev, 
-          user: null, 
-          profile: null, 
-          isAdmin: false, 
-          isLoading: false, 
-          error: error.message 
+        setState(prev => ({
+          ...prev,
+          user: null,
+          profile: null,
+          isAdmin: false,
+          isLoading: false,
+          error: error.message
         }));
         return;
       }
@@ -148,6 +153,12 @@ export const useAuth = () => {
 
   const signOut = async () => {
     try {
+      // Nettoyer le timer d'inactivité
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+        setInactivityTimer(null);
+      }
+
       const { error } = await supabase.auth.signOut();
       if (error) {
         setState(prev => ({ ...prev, error: error.message }));
@@ -159,6 +170,67 @@ export const useAuth = () => {
       }));
     }
   };
+
+  // Fonction pour réinitialiser le timer d'inactivité
+  const resetInactivityTimer = useCallback(() => {
+    setLastActivity(Date.now());
+
+    // Nettoyer l'ancien timer
+    if (inactivityTimer) {
+      clearTimeout(inactivityTimer);
+    }
+
+    // Créer un nouveau timer seulement si l'utilisateur est connecté
+    if (state.user) {
+      // Timer d'avertissement (13 minutes)
+      const warningTimer = setTimeout(() => {
+        const remainingTime = Math.ceil((INACTIVITY_TIMEOUT - (Date.now() - lastActivity)) / 1000 / 60);
+        if (remainingTime > 0) {
+          console.log(`Déconnexion dans ${remainingTime} minutes pour inactivité`);
+          // Ici vous pourriez ajouter une notification toast si vous voulez
+        }
+      }, INACTIVITY_TIMEOUT - 2 * 60 * 1000); // 2 minutes avant la déconnexion
+
+      // Timer de déconnexion (15 minutes)
+      const logoutTimer = setTimeout(() => {
+        console.log('Déconnexion automatique pour inactivité');
+        signOut();
+      }, INACTIVITY_TIMEOUT);
+
+      setInactivityTimer(logoutTimer);
+    }
+  }, [state.user, inactivityTimer, INACTIVITY_TIMEOUT, lastActivity]);
+
+  // Détecter l'activité utilisateur
+  useEffect(() => {
+    if (!state.user) return;
+
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+
+    const handleActivity = () => {
+      resetInactivityTimer();
+    };
+
+    // Ajouter les listeners d'activité
+    events.forEach(event => {
+      document.addEventListener(event, handleActivity, true);
+    });
+
+    // Initialiser le timer
+    resetInactivityTimer();
+
+    return () => {
+      // Nettoyer les listeners
+      events.forEach(event => {
+        document.removeEventListener(event, handleActivity, true);
+      });
+
+      // Nettoyer le timer
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+      }
+    };
+  }, [state.user, resetInactivityTimer]);
 
   return {
     ...state,

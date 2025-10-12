@@ -15,11 +15,12 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
         <div className="text-center text-white">
           <img 
             src={LogoImage} 
-            alt="WorkFlow Hub" 
+            alt="Ash Scrap" 
             className="h-24 w-auto mx-auto mb-8 drop-shadow-lg"
           />
           <h1 className="text-4xl font-bold mb-4">
-            WorkFlow Hub
+            <span className="text-yellow-400">Ash</span>{' '}
+            <span className="text-blue-300">Scrap</span>
           </h1>
           <p className="text-xl opacity-90 mb-8">
             Automatisez vos extractions de données en toute simplicité

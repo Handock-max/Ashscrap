@@ -6,12 +6,15 @@ import {
   ChevronLeft, 
   ChevronRight,
   Menu,
-  X
+  X,
+  User,
+  Settings
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui-store';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/hooks/use-auth';
 
 // Logo depuis le dossier public pour un chargement optimisé
 const LogoImage = '/images/Logo.png';
@@ -32,6 +35,12 @@ const navigationItems: NavigationItem[] = [
     href: '/'
   },
   {
+    id: 'profile',
+    label: 'Mon profil',
+    icon: User,
+    href: '/profile'
+  },
+  {
     id: 'admin',
     label: 'Administration',
     icon: Users,
@@ -50,6 +59,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
   const location = useLocation();
   const { sidebarCollapsed, toggleSidebar, brandingSettings } = useUIStore();
   const isMobile = useIsMobile();
+  const { user, profile } = useAuth();
+
+  // Fonction pour obtenir les initiales du nom
+  const getInitials = (name: string | null | undefined, email: string) => {
+    if (name) {
+      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    return email.slice(0, 2).toUpperCase();
+  };
+
+  // Fonction pour obtenir le nom d'affichage
+  const getDisplayName = () => {
+    if (profile?.full_name) {
+      return profile.full_name;
+    }
+    return user?.email?.split('@')[0] || 'Utilisateur';
+  };
 
   const filteredItems = navigationItems.filter(item => 
     !item.adminOnly || (item.adminOnly && isAdmin)
@@ -80,13 +106,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
           <div className="flex items-center gap-3">
             <img 
               src={LogoImage} 
-              alt="WorkFlow Hub" 
+              alt="Ash Scrap" 
               className="h-8 w-8 object-contain flex-shrink-0"
             />
             {!sidebarCollapsed && (
               <div className="flex flex-col min-w-0">
-                <span className="text-lg font-semibold text-foreground truncate">
-                  {brandingSettings?.companyName || 'WorkFlow Hub'}
+                <span className="text-lg font-semibold truncate">
+                  <span className="text-yellow-600">Ash</span>{' '}
+                  <span className="text-blue-500">Scrap</span>
                 </span>
                 <span className="text-xs text-muted-foreground">
                   Extraction de données
@@ -123,8 +150,39 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
           })}
         </nav>
 
-        {/* Footer avec toggle */}
-        <div className="border-t p-4">
+        {/* Footer avec utilisateur et toggle */}
+        <div className="border-t p-4 space-y-3">
+          {/* Informations utilisateur */}
+          {user && (
+            <div className={cn(
+              "flex items-center gap-3 p-2 rounded-lg bg-muted/50",
+              sidebarCollapsed && "justify-center"
+            )}>
+              {/* Avatar avec initiales */}
+              <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium flex-shrink-0">
+                {getInitials(profile?.full_name, user.email || '')}
+              </div>
+              
+              {/* Nom et email (visible seulement quand étendu) */}
+              {!sidebarCollapsed && (
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium text-foreground truncate">
+                    {getDisplayName()}
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    {user.email}
+                  </span>
+                  {isAdmin && (
+                    <span className="text-xs text-primary font-medium">
+                      Administrateur
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Bouton toggle */}
           <Button
             variant="ghost"
             size="sm"

@@ -19,7 +19,7 @@ class UIStore {
     sidebarCollapsed: true, // Commencer fermé par défaut pour une meilleure UX
     theme: 'system',
     brandingSettings: {
-      companyName: 'WorkFlow Hub',
+      companyName: 'Ash Scrap',
       primaryColor: '#3b82f6',
       secondaryColor: '#64748b'
     }
@@ -30,6 +30,17 @@ class UIStore {
   constructor() {
     // Load from localStorage on initialization
     this.loadFromStorage();
+    // Apply theme on initialization
+    this.applyTheme(this.state.theme);
+    
+    // Listen for system theme changes
+    if (typeof window !== 'undefined') {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (this.state.theme === 'system') {
+          this.applyTheme('system');
+        }
+      });
+    }
   }
 
   private loadFromStorage() {
@@ -78,7 +89,18 @@ class UIStore {
 
   setTheme(theme: 'light' | 'dark' | 'system') {
     this.state.theme = theme;
+    this.applyTheme(theme);
     this.notify();
+  }
+
+  private applyTheme(theme: 'light' | 'dark' | 'system') {
+    const root = window.document.documentElement;
+    
+    if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
   }
 
   setBrandingSettings(settings: BrandingSettings) {
