@@ -11,6 +11,7 @@ export const LoginForm = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
 
@@ -24,14 +25,16 @@ export const LoginForm = () => {
           email,
           password,
           options: {
+            data: {
+              full_name: fullName,
+            },
             emailRedirectTo: `${window.location.origin}/`,
           },
         });
 
         if (error) throw error;
 
-        toast.success("Compte créé avec succès !");
-        navigate("/");
+        toast.success("Compte créé avec succès ! Vérifiez votre email.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -51,18 +54,47 @@ export const LoginForm = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-4">
+    <div className="space-y-6">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-foreground mb-2">
+          {isSignUp ? "Créer un compte" : "Bon retour !"}
+        </h2>
+        <p className="text-muted-foreground">
+          {isSignUp 
+            ? "Rejoignez WorkFlow Hub pour commencer" 
+            : "Connectez-vous à votre compte"
+          }
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {isSignUp && (
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Nom complet</Label>
+            <Input
+              id="fullName"
+              type="text"
+              placeholder="Votre nom complet"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              disabled={isLoading}
+              className="h-11"
+            />
+          </div>
+        )}
+
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">Adresse email</Label>
           <Input
             id="email"
             type="email"
-            placeholder="votre@email.com"
+            placeholder="nom@exemple.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             disabled={isLoading}
+            className="h-11"
           />
         </div>
 
@@ -76,37 +108,49 @@ export const LoginForm = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
             disabled={isLoading}
+            className="h-11"
+            minLength={6}
           />
+          {isSignUp && (
+            <p className="text-xs text-muted-foreground">
+              Minimum 6 caractères
+            </p>
+          )}
         </div>
-      </div>
 
-      <Button
-        type="submit"
-        className="w-full gradient-primary text-white hover:opacity-90 transition-opacity"
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            {isSignUp ? "Création..." : "Connexion..."}
-          </>
-        ) : (
-          <>{isSignUp ? "Créer un compte" : "Se connecter"}</>
-        )}
-      </Button>
+        <Button
+          type="submit"
+          className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {isSignUp ? "Création en cours..." : "Connexion..."}
+            </>
+          ) : (
+            <>{isSignUp ? "Créer mon compte" : "Se connecter"}</>
+          )}
+        </Button>
+      </form>
 
       <div className="text-center">
         <button
           type="button"
-          onClick={() => setIsSignUp(!isSignUp)}
-          className="text-sm text-primary hover:underline"
+          onClick={() => {
+            setIsSignUp(!isSignUp);
+            setFullName("");
+            setEmail("");
+            setPassword("");
+          }}
+          className="text-sm text-primary hover:underline font-medium"
           disabled={isLoading}
         >
           {isSignUp
             ? "Déjà un compte ? Se connecter"
-            : "Pas de compte ? S'inscrire"}
+            : "Nouveau ? Créer un compte"}
         </button>
       </div>
-    </form>
+    </div>
   );
 };

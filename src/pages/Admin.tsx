@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageLayout } from "@/components/layout/AppLayout";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { BrandingSettings } from "@/components/admin/BrandingSettings";
-import { Loader2, LogOut } from "lucide-react";
+import { Loader2, LogOut, Users, Settings, Shield, Download, CheckCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -68,7 +68,7 @@ const Admin = () => {
   }
 
   const logoutButton = (
-    <Button variant="outline" onClick={handleLogout}>
+    <Button variant="outline" onClick={handleLogout} size="sm">
       <LogOut className="h-4 w-4 mr-2" />
       Déconnexion
     </Button>
@@ -77,21 +77,80 @@ const Admin = () => {
   return (
     <PageLayout 
       title="Administration" 
-      description="Gérez les utilisateurs et personnalisez l'application"
+      description="Panneau d'administration - Gérez votre plateforme"
       actions={logoutButton}
+      className="bg-gradient-to-br from-background to-muted/20"
     >
-      <div className="max-w-6xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Stats admin */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-card rounded-lg border p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Utilisateurs</p>
+                <p className="text-2xl font-bold">0</p>
+              </div>
+              <div className="h-8 w-8 bg-blue-500/10 rounded-full flex items-center justify-center">
+                <Users className="h-4 w-4 text-blue-500" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-card rounded-lg border p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Admins</p>
+                <p className="text-2xl font-bold">1</p>
+              </div>
+              <div className="h-8 w-8 bg-purple-500/10 rounded-full flex items-center justify-center">
+                <Shield className="h-4 w-4 text-purple-500" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-card rounded-lg border p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Extractions</p>
+                <p className="text-2xl font-bold">0</p>
+              </div>
+              <div className="h-8 w-8 bg-green-500/10 rounded-full flex items-center justify-center">
+                <Download className="h-4 w-4 text-green-500" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-card rounded-lg border p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Système</p>
+                <p className="text-2xl font-bold text-green-600">OK</p>
+              </div>
+              <div className="h-8 w-8 bg-green-500/10 rounded-full flex items-center justify-center">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Contenu principal */}
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="users">Utilisateurs</TabsTrigger>
-            <TabsTrigger value="branding">Personnalisation</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Utilisateurs
+            </TabsTrigger>
+            <TabsTrigger value="branding" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Personnalisation
+            </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="users">
+          <TabsContent value="users" className="space-y-4">
             <UserManagement />
           </TabsContent>
           
-          <TabsContent value="branding">
+          <TabsContent value="branding" className="space-y-4">
             <BrandingSettings />
           </TabsContent>
         </Tabs>

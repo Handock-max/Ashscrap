@@ -28,18 +28,35 @@ export const useAuth = () => {
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Récupérer le profil
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
         return null;
       }
 
-      return data as Profile;
+      // Récupérer les rôles
+      const { data: roles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
+
+      if (rolesError) {
+        console.error('Error fetching roles:', rolesError);
+        return { ...profile, role: 'user' as const };
+      }
+
+      const isAdmin = roles?.some(r => r.role === 'admin') || false;
+      
+      return {
+        ...profile,
+        role: isAdmin ? 'admin' as const : 'user' as const
+      };
     } catch (error) {
       console.error('Error fetching profile:', error);
       return null;

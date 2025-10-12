@@ -30,6 +30,7 @@ import {
   useSidebar
 } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import LogoImage from '@/images/Logo.png';
 
 interface NavigationItem {
   id: string;
@@ -73,25 +74,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
   return (
     <UISidebar 
       collapsible="icon" 
-      className={cn("border-r", className)}
+      className={cn("border-r w-64 data-[state=collapsed]:w-16", className)}
     >
-      <SidebarHeader className="border-b">
-        <div className="flex items-center justify-between gap-2 px-2 py-1">
-          <div className="flex items-center gap-2 min-w-0">
-            {brandingSettings?.logoUrl && (
-              <img 
-                src={brandingSettings.logoUrl} 
-                alt="Logo" 
-                className="h-8 w-8 object-contain flex-shrink-0"
-              />
-            )}
-            <div className="flex flex-col min-w-0">
-              <span className="text-lg font-semibold text-foreground truncate">
-                {brandingSettings?.companyName || 'WorkFlow Hub'}
-              </span>
-            </div>
+      <SidebarHeader className="border-b p-4">
+        <div className="flex items-center gap-3">
+          <img 
+            src={LogoImage} 
+            alt="WorkFlow Hub" 
+            className="h-8 w-8 object-contain flex-shrink-0"
+          />
+          <div className="flex flex-col min-w-0 group-data-[collapsible=icon]:hidden">
+            <span className="text-lg font-semibold text-foreground truncate">
+              {brandingSettings?.companyName || 'WorkFlow Hub'}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Extraction de données
+            </span>
           </div>
-          {/* Mobile trigger will be handled by the SidebarTrigger in the footer */}
         </div>
       </SidebarHeader>
 
@@ -144,18 +143,19 @@ export const SidebarWrapper: React.FC<SidebarWrapperProps> = ({ children, isAdmi
   const { sidebarCollapsed, setSidebarCollapsed } = useUIStore();
   const isMobile = useIsMobile();
 
-  // Auto-collapse on mobile by default
+  // Auto-collapse on mobile and desktop by default for better UX
   useEffect(() => {
-    if (isMobile && !sidebarCollapsed) {
+    // Toujours commencer avec la sidebar fermée pour une meilleure UX
+    if (!sidebarCollapsed) {
       setSidebarCollapsed(true);
     }
-  }, [isMobile, sidebarCollapsed, setSidebarCollapsed]);
+  }, []);
 
   return (
     <SidebarProvider 
       open={!sidebarCollapsed} 
       onOpenChange={(open) => setSidebarCollapsed(!open)}
-      defaultOpen={!isMobile}
+      defaultOpen={false} // Commencer fermé par défaut
     >
       <div className="flex min-h-screen w-full">
         <Sidebar isAdmin={isAdmin} />

@@ -16,7 +16,7 @@ interface UIState {
 // Simple state management without external dependencies
 class UIStore {
   private state: UIState = {
-    sidebarCollapsed: false,
+    sidebarCollapsed: true, // Commencer fermé par défaut pour une meilleure UX
     theme: 'system',
     brandingSettings: {
       companyName: 'WorkFlow Hub',
