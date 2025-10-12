@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageLayout } from "@/components/layout/AppLayout";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { BrandingSettings } from "@/components/admin/BrandingSettings";
+import { WebhookTest } from "@/components/admin/WebhookTest";
 import { Loader2, LogOut, Users, Settings, Shield, Download, CheckCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -196,7 +197,7 @@ const Admin = () => {
 
         {/* Contenu principal */}
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsList className="grid w-full grid-cols-3 max-w-lg">
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               Utilisateurs
@@ -204,6 +205,10 @@ const Admin = () => {
             <TabsTrigger value="branding" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               Personnalisation
+            </TabsTrigger>
+            <TabsTrigger value="webhooks" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              Webhooks
             </TabsTrigger>
           </TabsList>
           
@@ -213,6 +218,10 @@ const Admin = () => {
           
           <TabsContent value="branding" className="space-y-4">
             <BrandingSettings />
+          </TabsContent>
+          
+          <TabsContent value="webhooks" className="space-y-4">
+            <WebhookTest />
           </TabsContent>
         </Tabs>
       </div>

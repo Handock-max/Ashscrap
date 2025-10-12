@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { countries } from "@/data/countries";
 import { sectors } from "@/data/sectors";
 import { KeywordsInput } from "./KeywordsInput";
+import { WebhookService } from "@/services/webhook";
 
 export const ExtractionForm = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -47,36 +48,29 @@ export const ExtractionForm = () => {
 
       if (error) throw error;
 
-      // Send webhook to N8N with extraction details
-      const webhookUrl = import.meta.env.VITE_WEBHOOK_N8N;
-      if (webhookUrl) {
-        try {
-          await fetch(webhookUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              timestamp: new Date().toISOString(),
-              extraction_id: extraction.id,
-              user: {
-                id: user.id,
-                email: user.email,
-                full_name: user.user_metadata?.full_name || null
-              },
-              extraction_request: {
-                country,
-                company_type: sector,
-                company_age: companyAge,
-                file_format: fileFormat,
-                min_sites: minSites || null,
-                keywords: keywords.length > 0 ? keywords : null
-              }
-            })
-          });
-        } catch (webhookError) {
-          console.error('Erreur webhook N8N:', webhookError);
-          // Ne pas faire échouer l'extraction si le webhook échoue
+      // Send webhook to N8N - Point d'entrée du workflow
+      const payload = WebhookService.createExtractionPayload(
+        extraction.id,
+        {
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name,
+        },
+        {
+          country,
+          company_type: sector,
+          company_age: companyAge,
+          file_format: fileFormat,
+          min_sites: minSites,
+          keywords,
+        }
+      );
+
+      if (WebhookService.validatePayload(payload)) {
+        const webhookResult = await WebhookService.sendExtractionWebhook(payload);
+        if (!webhookResult.success) {
+          console.warn('Webhook N8N échoué:', webhookResult.error);
+          // L'extraction continue même si le webhook échoue
         }
       }
 
