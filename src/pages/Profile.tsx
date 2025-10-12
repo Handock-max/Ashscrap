@@ -112,7 +112,7 @@ const Profile = () => {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-lg font-medium">
+              <div className="h-12 w-12 rounded-full bg-blue-600 text-white flex items-center justify-center text-lg font-medium">
                 {profile?.full_name 
                   ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
                   : user?.email?.slice(0, 2).toUpperCase()
@@ -165,7 +165,7 @@ const Profile = () => {
               <Button 
                 type="submit" 
                 disabled={isUpdatingProfile || fullName === (profile?.full_name || '')}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 {isUpdatingProfile ? (
                   <>
@@ -276,7 +276,7 @@ const Profile = () => {
               <Button 
                 type="submit" 
                 disabled={isUpdatingPassword || !newPassword || !confirmPassword}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 {isUpdatingPassword ? (
                   <>

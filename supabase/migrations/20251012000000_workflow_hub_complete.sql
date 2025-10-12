@@ -59,10 +59,10 @@ CREATE TABLE public.extractions (
 -- Table des paramètres de l'application
 CREATE TABLE public.app_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_name TEXT DEFAULT 'WorkFlow Hub',
+  company_name TEXT DEFAULT 'Ash Scrap',
   logo_url TEXT,
-  primary_color TEXT DEFAULT '#3b82f6',
-  secondary_color TEXT DEFAULT '#64748b',
+  primary_color TEXT DEFAULT '#eab308',
+  secondary_color TEXT DEFAULT '#2563eb',
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL
 );
 
@@ -215,7 +215,7 @@ CREATE POLICY "Admins can update app settings"
 
 -- Insérer les paramètres par défaut de l'application
 INSERT INTO public.app_settings (company_name, primary_color, secondary_color) 
-VALUES ('WorkFlow Hub', '#3b82f6', '#64748b');
+VALUES ('Ash Scrap', '#eab308', '#2563eb');
 
 -- =====================================================
 -- 8. PERMISSIONS FINALES

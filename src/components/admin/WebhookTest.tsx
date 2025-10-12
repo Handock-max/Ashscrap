@@ -16,10 +16,10 @@ export const WebhookTest = () => {
 
   const handleTestWebhook = async () => {
     setIsLoading(true);
-    
+
     try {
       const result = await WebhookService.testWebhook();
-      
+
       setLastTest({
         success: result.success,
         message: result.success ? result.message! : result.error!,
@@ -44,7 +44,7 @@ export const WebhookTest = () => {
     }
   };
 
-  const webhookUrl = import.meta.env.VITE_WEBHOOK_N8N;
+  const webhookUrl = import.meta.env.VITE_WEBHOOK;
 
   return (
     <Card>
@@ -61,7 +61,7 @@ export const WebhookTest = () => {
         <div className="space-y-2">
           <div className="text-sm font-medium">URL du webhook :</div>
           <div className="text-sm text-muted-foreground font-mono bg-muted p-2 rounded">
-            {webhookUrl || "Non configuré (VITE_WEBHOOK_N8N)"}
+            {webhookUrl || "Non configuré (VITE_WEBHOOK)"}
           </div>
         </div>
 
@@ -111,7 +111,7 @@ export const WebhookTest = () => {
           <div className="flex items-center gap-2 text-amber-600 bg-amber-50 p-3 rounded">
             <AlertCircle className="h-4 w-4" />
             <span className="text-sm">
-              Configurez la variable VITE_WEBHOOK_N8N pour activer les webhooks
+              Configurez la variable VITE_WEBHOOK pour activer les webhooks
             </span>
           </div>
         )}

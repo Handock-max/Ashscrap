@@ -104,8 +104,19 @@ export const UserManagement = () => {
 
   const handleDeleteUser = async (userId: string) => {
     try {
-      // Note: Deleting from auth.users requires admin API or service role
-      // This will only delete from profiles and user_roles due to CASCADE
+      // Delete user roles first
+      await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userId);
+
+      // Delete user extractions
+      await supabase
+        .from("extractions")
+        .delete()
+        .eq("user_id", userId);
+
+      // Delete profile (this will cascade to auth.users due to foreign key)
       const { error } = await supabase
         .from("profiles")
         .delete()
@@ -113,10 +124,11 @@ export const UserManagement = () => {
 
       if (error) throw error;
 
-      toast.success("Utilisateur supprimé");
+      toast.success("Utilisateur supprimé avec succès");
       loadUsers();
     } catch (error: any) {
-      toast.error("Erreur lors de la suppression");
+      console.error("Erreur suppression:", error);
+      toast.error("Erreur lors de la suppression: " + (error.message || "Erreur inconnue"));
     }
   };
 
@@ -235,7 +247,7 @@ export const UserManagement = () => {
                   <TableCell className="text-right">
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
@@ -249,7 +261,10 @@ export const UserManagement = () => {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Annuler</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDeleteUser(user.id)}>
+                          <AlertDialogAction 
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
                             Supprimer
                           </AlertDialogAction>
                         </AlertDialogFooter>

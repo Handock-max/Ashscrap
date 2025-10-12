@@ -11,7 +11,7 @@ Le système de webhook de WorkFlow Hub sert de **point d'entrée principal** pou
 Ajoutez la variable suivante dans votre configuration Vercel :
 
 ```env
-VITE_WEBHOOK_N8N=https://votre-instance-n8n.com/webhook/extraction
+VITE_WEBHOOK=https://votre-instance-n8n.com/webhook/extraction
 ```
 
 ### 2. Structure du payload webhook
@@ -44,7 +44,7 @@ Le webhook inclut les headers suivants :
 
 ```http
 Content-Type: application/json
-User-Agent: WorkflowHub/1.0
+User-Agent: Ash Scrap/1.0
 X-Webhook-Source: extraction-form
 ```
 
@@ -191,7 +191,7 @@ Le système valide automatiquement :
 ## Support
 
 En cas de problème :
-1. Vérifiez la configuration de VITE_WEBHOOK_N8N
+1. Vérifiez la configuration de VITE_WEBHOOK
 2. Testez la connectivité depuis l'interface admin
 3. Consultez les logs N8N pour les erreurs de workflow
 4. Vérifiez les mises à jour de statut dans Supabase

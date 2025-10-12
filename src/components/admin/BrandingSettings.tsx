@@ -177,7 +177,7 @@ export const BrandingSettings = () => {
 
           <Button
             type="submit"
-            className="w-full gradient-primary text-white"
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
             disabled={isSaving}
           >
             {isSaving ? (

@@ -28,7 +28,7 @@ export interface WebhookResponse {
 }
 
 export class WebhookService {
-  private static readonly WEBHOOK_URL = import.meta.env.VITE_WEBHOOK_N8N;
+  private static readonly WEBHOOK_URL = import.meta.env.VITE_WEBHOOK;
   private static readonly TIMEOUT = 10000; // 10 secondes
 
   /**
@@ -37,7 +37,7 @@ export class WebhookService {
    */
   static async sendExtractionWebhook(payload: WebhookPayload): Promise<WebhookResponse> {
     if (!this.WEBHOOK_URL) {
-      console.warn('VITE_WEBHOOK_N8N non configuré - webhook ignoré');
+      console.warn('VITE_WEBHOOK non configuré - webhook ignoré');
       return { success: false, error: 'Webhook URL non configurée' };
     }
 
