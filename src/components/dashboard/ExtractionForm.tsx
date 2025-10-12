@@ -22,7 +22,7 @@ export const ExtractionForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!country || !sector || !companyAge || !fileFormat) {
       toast.error("Veuillez remplir tous les champs obligatoires");
       return;
@@ -32,23 +32,56 @@ export const ExtractionForm = () => {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) throw new Error("Non authentifié");
 
       // Create extraction record
-      const { error } = await supabase.from("extractions").insert({
+      const { data: extraction, error } = await supabase.from("extractions").insert({
         user_id: user.id,
         country,
         company_type: sector,
         company_age: companyAge,
         file_format: fileFormat,
         status: "pending",
-      });
+      }).select().single();
 
       if (error) throw error;
 
+      // Send webhook to N8N with extraction details
+      const webhookUrl = import.meta.env.VITE_WEBHOOK_N8N;
+      if (webhookUrl) {
+        try {
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              timestamp: new Date().toISOString(),
+              extraction_id: extraction.id,
+              user: {
+                id: user.id,
+                email: user.email,
+                full_name: user.user_metadata?.full_name || null
+              },
+              extraction_request: {
+                country,
+                company_type: sector,
+                company_age: companyAge,
+                file_format: fileFormat,
+                min_sites: minSites || null,
+                keywords: keywords.length > 0 ? keywords : null
+              }
+            })
+          });
+        } catch (webhookError) {
+          console.error('Erreur webhook N8N:', webhookError);
+          // Ne pas faire échouer l'extraction si le webhook échoue
+        }
+      }
+
       toast.success("Extraction lancée avec succès !");
-      
+
       // Reset form
       setCountry("");
       setSector("");
@@ -155,7 +188,7 @@ export const ExtractionForm = () => {
             </div>
           </div>
 
-          <KeywordsInput 
+          <KeywordsInput
             keywords={keywords}
             onChange={setKeywords}
             disabled={isLoading}
