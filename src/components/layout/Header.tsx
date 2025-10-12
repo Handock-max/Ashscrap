@@ -40,8 +40,9 @@ export const Header = () => {
     <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <h1 className="text-2xl font-bold gradient-primary bg-clip-text text-transparent">
-            WorkFlow Hub
+          <h1 className="text-2xl font-bold">
+            <span className="text-yellow-500">Ash</span>{' '}
+            <span className="text-blue-600">Scrap</span>
           </h1>
         </div>
 

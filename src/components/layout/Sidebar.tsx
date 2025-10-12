@@ -159,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
               sidebarCollapsed && "justify-center"
             )}>
               {/* Avatar avec initiales */}
-              <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium flex-shrink-0">
+              <div className="h-8 w-8 rounded-full bg-blue-600 text-white dark:bg-blue-600 dark:text-white flex items-center justify-center text-sm font-medium flex-shrink-0">
                 {getInitials(profile?.full_name, user.email || '')}
               </div>
               

@@ -66,7 +66,7 @@ export const LoginForm = () => {
         </h2>
         <p className="text-muted-foreground">
           {isSignUp 
-            ? "Rejoignez WorkFlow Hub pour commencer" 
+            ? "Rejoignez Ash Scrap pour commencer" 
             : "Connectez-vous à votre compte"
           }
         </p>

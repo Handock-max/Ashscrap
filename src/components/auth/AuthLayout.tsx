@@ -25,7 +25,7 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
           />
           <h1 className="text-4xl font-bold mb-4">
             <span className="text-yellow-400">Ash</span>{' '}
-            <span className="text-blue-300">Scrap</span>
+            <span className="text-blue-400">Scrap</span>
           </h1>
           <p className="text-xl opacity-90 mb-8">
             Automatisez vos extractions de données en toute simplicité
@@ -57,7 +57,8 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
               className="h-16 w-auto mx-auto mb-4"
             />
             <h1 className="text-2xl font-bold text-foreground mb-2">
-              WorkFlow Hub
+              <span className="text-yellow-500">Ash</span>{' '}
+              <span className="text-blue-600">Scrap</span>
             </h1>
             <p className="text-sm text-muted-foreground">
               Automatisez vos extractions de données
