@@ -11,8 +11,13 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
   return (
     <div className="min-h-screen flex">
       {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary to-secondary items-center justify-center p-12">
-        <div className="text-center text-white">
+      <div 
+        className="hidden lg:flex lg:w-1/2 items-center justify-center p-12"
+        style={{
+          background: 'linear-gradient(135deg, hsl(221, 83%, 53%), hsl(262, 83%, 58%))'
+        }}
+      >
+        <div className="text-center text-white" style={{ color: 'white' }}>
           <img 
             src={LogoImage} 
             alt="Ash Scrap" 

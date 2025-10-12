@@ -120,7 +120,7 @@ export const LoginForm = () => {
 
         <Button
           type="submit"
-          className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+          className="w-full h-11 font-medium bg-primary text-primary-foreground hover:bg-primary/90"
           disabled={isLoading}
         >
           {isLoading ? (
