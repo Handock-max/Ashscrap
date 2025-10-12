@@ -4,7 +4,6 @@ import { SidebarWrapper } from './Sidebar';
 import { ErrorBoundary } from '@/components/error/ErrorBoundary';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/sonner';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 
 interface AppLayoutProps {
   children?: React.ReactNode;
@@ -70,15 +69,11 @@ export const PageLayout: React.FC<PageLayoutProps> = ({
       {/* Page Header */}
       <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-16 items-center justify-between px-6">
-          <div className="flex items-center gap-4">
-            {/* Mobile sidebar trigger */}
-            <SidebarTrigger className="md:hidden" />
-            <div className="flex flex-col">
-              <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-              {description && (
-                <p className="text-sm text-muted-foreground">{description}</p>
-              )}
-            </div>
+          <div className="flex flex-col">
+            <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+            {description && (
+              <p className="text-sm text-muted-foreground">{description}</p>
+            )}
           </div>
           {actions && (
             <div className="flex items-center space-x-2">
