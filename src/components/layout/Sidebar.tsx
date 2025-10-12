@@ -30,7 +30,8 @@ import {
   useSidebar
 } from '@/components/ui/sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
-import LogoImage from '@/images/Logo.png';
+// Logo depuis le dossier public pour un chargement optimisé
+const LogoImage = '/images/Logo.png';
 
 interface NavigationItem {
   id: string;

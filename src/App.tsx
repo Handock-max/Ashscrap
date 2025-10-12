@@ -16,7 +16,14 @@ const AppRoutes = () => {
   const { user, isAdmin, isLoading } = useAuth();
 
   if (isLoading) {
-    return <PageLoader text="Chargement de l'application..." />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-sm text-muted-foreground">Chargement...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!user) {

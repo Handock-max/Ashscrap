@@ -65,7 +65,10 @@ export const useAuth = () => {
 
   const refreshUser = async () => {
     try {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
+      // Optimisation : ne pas montrer le loading si on a déjà un user
+      if (!state.user) {
+        setState(prev => ({ ...prev, isLoading: true, error: null }));
+      }
       
       const { data: { user }, error } = await supabase.auth.getUser();
       

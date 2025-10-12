@@ -4,7 +4,8 @@ interface AuthLayoutProps {
   children: ReactNode;
 }
 
-import LogoImage from "@/images/Logo.png";
+// Logo depuis le dossier public pour un chargement optimisé
+const LogoImage = '/images/Logo.png';
 
 export const AuthLayout = ({ children }: AuthLayoutProps) => {
   return (
