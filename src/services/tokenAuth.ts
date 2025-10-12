@@ -5,6 +5,7 @@ interface TokenData {
   username: string;
   userId: string;
   expiresAt: number;
+  isAdmin: boolean;
 }
 
 const TOKEN_KEY = 'workflow_hub_token';
@@ -22,11 +23,25 @@ export class TokenAuthService {
     const token = this.generateToken();
     const expiresAt = Date.now() + TOKEN_EXPIRY;
     
+    // Vérifier le rôle admin
+    let isAdmin = false;
+    try {
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
+      
+      isAdmin = roles?.some(r => r.role === 'admin') || false;
+    } catch (error) {
+      console.error('Erreur lors de la vérification du rôle:', error);
+    }
+    
     const tokenData: TokenData = {
       token,
       username: email,
       userId,
-      expiresAt
+      expiresAt,
+      isAdmin
     };
 
     // Stocker dans sessionStorage

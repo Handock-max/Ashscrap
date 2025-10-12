@@ -125,12 +125,7 @@ export const LoginForm = () => {
 
         <Button
           type="submit"
-          className="w-full h-11 font-medium"
-          style={{
-            backgroundColor: 'hsl(221, 83%, 53%)',
-            color: 'white',
-            border: 'none'
-          }}
+          className="w-full h-11 font-medium bg-blue-600 hover:bg-blue-700 text-white border-0 dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
           disabled={isLoading}
         >
           {isLoading ? (

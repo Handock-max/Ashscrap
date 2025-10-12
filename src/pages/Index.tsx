@@ -101,11 +101,7 @@ const Index = () => {
       variant="outline" 
       onClick={handleLogout} 
       size="sm"
-      style={{
-        borderColor: 'hsl(221, 83%, 53%)',
-        color: 'hsl(221, 83%, 53%)',
-        backgroundColor: 'transparent'
-      }}
+      className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-950"
     >
       <LogOut className="h-4 w-4 mr-2" />
       Déconnexion

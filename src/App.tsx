@@ -15,7 +15,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const { isAuthenticated, isLoading } = useTokenAuth();
+  const { isAuthenticated, isLoading, isAdmin } = useTokenAuth();
   const location = useLocation();
   
   // Load branding settings
@@ -28,11 +28,14 @@ const AppRoutes = () => {
 
   return (
     <ProtectedRoute>
-      <AppLayout isAdmin={false}>
+      <AppLayout isAdmin={isAdmin}>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route 
+            path="/admin" 
+            element={isAdmin ? <Admin /> : <Navigate to="/" replace />} 
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppLayout>

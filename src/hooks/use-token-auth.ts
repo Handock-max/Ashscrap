@@ -5,9 +5,11 @@ import { toast } from 'sonner';
 interface TokenAuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
+  isAdmin: boolean;
   userData: {
     userId: string;
     username: string;
+    isAdmin: boolean;
   } | null;
 }
 
@@ -15,6 +17,7 @@ export const useTokenAuth = () => {
   const [state, setState] = useState<TokenAuthState>({
     isAuthenticated: false,
     isLoading: true,
+    isAdmin: false,
     userData: null
   });
 
@@ -30,15 +33,18 @@ export const useTokenAuth = () => {
         setState({
           isAuthenticated: true,
           isLoading: false,
+          isAdmin: userData.isAdmin,
           userData: {
             userId: userData.userId,
-            username: userData.username
+            username: userData.username,
+            isAdmin: userData.isAdmin
           }
         });
       } else {
         setState({
           isAuthenticated: false,
           isLoading: false,
+          isAdmin: false,
           userData: null
         });
       }
@@ -47,6 +53,7 @@ export const useTokenAuth = () => {
       setState({
         isAuthenticated: false,
         isLoading: false,
+        isAdmin: false,
         userData: null
       });
     }
@@ -58,6 +65,7 @@ export const useTokenAuth = () => {
       setState({
         isAuthenticated: false,
         isLoading: false,
+        isAdmin: false,
         userData: null
       });
       toast.success("Vous avez été déconnecté");
@@ -72,6 +80,7 @@ export const useTokenAuth = () => {
     setState({
       isAuthenticated: false,
       isLoading: false,
+      isAdmin: false,
       userData: null
     });
     toast.error(message);
