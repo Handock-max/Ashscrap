@@ -3,7 +3,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AppLayout } from "@/components/layout";
 import { ErrorBoundary } from "@/components/error";
-import { useAuth } from "@/hooks/use-auth";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { useTokenAuth } from "@/hooks/use-token-auth";
 import { useBranding } from "@/hooks/use-branding";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -14,49 +15,28 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const { user, isAdmin, isLoading, error } = useAuth();
+  const { isAuthenticated, isLoading } = useTokenAuth();
   const location = useLocation();
   
   // Load branding settings
   useBranding();
 
-  // Gestion des erreurs d'auth
-  if (error) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm text-muted-foreground">Vérification de la session...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-
   // Si l'utilisateur est connecté et sur /auth, rediriger vers le dashboard
-  if (user && location.pathname === '/auth') {
+  if (isAuthenticated && location.pathname === '/auth') {
     return <Navigate to="/" replace />;
   }
 
   return (
-    <AppLayout isAdmin={isAdmin}>
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route 
-          path="/admin" 
-          element={isAdmin ? <Admin /> : <Navigate to="/" replace />} 
-        />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </AppLayout>
+    <ProtectedRoute>
+      <AppLayout isAdmin={false}>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AppLayout>
+    </ProtectedRoute>
   );
 };
 

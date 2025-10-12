@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { useTokenAuth } from "@/hooks/use-token-auth";
 import { PageLayout } from "@/components/layout/AppLayout";
 import { ExtractionForm } from "@/components/dashboard/ExtractionForm";
 import { ExtractionsHistory } from "@/components/dashboard/ExtractionsHistory";
@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user, isLoading: authLoading, error: authError, signOut } = useAuth();
+  const { userData, logout } = useTokenAuth();
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -21,13 +21,13 @@ const Index = () => {
   });
 
   const fetchStats = async () => {
-    if (!user) return;
+    if (!userData) return;
     
     try {
       const { data: extractions, error } = await supabase
         .from('extractions')
         .select('status')
-        .eq('user_id', user.id);
+        .eq('user_id', userData.userId);
 
       if (error) throw error;
 
@@ -45,23 +45,16 @@ const Index = () => {
     }
   };
 
-  // Redirection si pas connecté
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-    }
-  }, [authLoading, user, navigate]);
-
   // Charger les stats quand l'utilisateur est connecté
   useEffect(() => {
-    if (user) {
+    if (userData) {
       fetchStats();
     }
-  }, [user]);
+  }, [userData]);
 
   // Subscribe to realtime updates for extractions
   useEffect(() => {
-    if (!user) return;
+    if (!userData) return;
 
     const channel = supabase
       .channel('extractions-stats')
@@ -81,33 +74,18 @@ const Index = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, [userData]);
 
   const handleLogout = async () => {
     try {
-      await signOut();
-      toast.success("Déconnexion réussie");
+      await logout();
       navigate("/auth");
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de la déconnexion");
     }
   };
 
-  // Gestion des erreurs d'auth
-  if (authError) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <p className="text-sm text-red-500">Erreur de connexion: {authError}</p>
-          <Button onClick={() => navigate("/auth")}>
-            Retour à la connexion
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (authLoading) {
+  if (!userData) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center space-y-4">
@@ -119,7 +97,16 @@ const Index = () => {
   }
 
   const logoutButton = (
-    <Button variant="outline" onClick={handleLogout} size="sm">
+    <Button 
+      variant="outline" 
+      onClick={handleLogout} 
+      size="sm"
+      style={{
+        borderColor: 'hsl(221, 83%, 53%)',
+        color: 'hsl(221, 83%, 53%)',
+        backgroundColor: 'transparent'
+      }}
+    >
       <LogOut className="h-4 w-4 mr-2" />
       Déconnexion
     </Button>

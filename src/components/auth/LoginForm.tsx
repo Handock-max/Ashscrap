@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { TokenAuthService } from "@/services/tokenAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,15 +37,19 @@ export const LoginForm = () => {
 
         toast.success("Compte créé avec succès ! Vérifiez votre email.");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
         if (error) throw error;
 
-        toast.success("Connexion réussie !");
-        navigate("/");
+        // Créer le token après connexion réussie
+        if (data.user) {
+          await TokenAuthService.createToken(email, data.user.id);
+          toast.success("Connexion réussie !");
+          navigate("/");
+        }
       }
     } catch (error: any) {
       toast.error(error.message || "Une erreur est survenue");
@@ -120,7 +125,12 @@ export const LoginForm = () => {
 
         <Button
           type="submit"
-          className="w-full h-11 font-medium bg-primary text-primary-foreground hover:bg-primary/90"
+          className="w-full h-11 font-medium"
+          style={{
+            backgroundColor: 'hsl(221, 83%, 53%)',
+            color: 'white',
+            border: 'none'
+          }}
           disabled={isLoading}
         >
           {isLoading ? (
