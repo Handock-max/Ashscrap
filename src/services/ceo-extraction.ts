@@ -48,25 +48,53 @@ export class CEOExtractionService {
    */
   async downloadCountryCSV(countryName: string): Promise<CEO[]> {
     try {
+      // Capitaliser la première lettre pour correspondre au nom du fichier
+      const fileName = countryName.charAt(0).toUpperCase() + countryName.slice(1).toLowerCase();
+      
+      console.log(`Tentative de téléchargement: ${fileName}.csv`);
+      
       // Télécharger le fichier CSV depuis Supabase Storage
       const { data: csvBlob, error } = await this.supabaseClient.storage
         .from('extractions')
-        .download(`${countryName}.csv`);
+        .download(`${fileName}.csv`);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erreur Supabase Storage:', error);
+        throw error;
+      }
+
+
+
+
+
+      if (!csvBlob) {
+        throw new Error('Fichier CSV vide ou non trouvé');
+      }
 
       // Convertir en texte
       const csvText = await csvBlob.text();
+      
+      if (!csvText || csvText.trim().length === 0) {
+        throw new Error('Fichier CSV vide');
+      }
 
       // Parser le CSV
       const ceos = this.parseCSV(csvText);
 
-      console.log(`Loaded ${ceos.length} CEOs from ${countryName}`);
+      console.log(`Loaded ${ceos.length} CEOs from ${fileName}`);
       return ceos;
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error loading ${countryName} CEO database:`, error);
-      throw new Error(`Ce pays n'a pas encore été ajouté à la liste`);
+      
+      // Messages d'erreur plus spécifiques
+      if (error.message?.includes('not found') || error.message?.includes('404')) {
+        throw new Error(`Le fichier ${countryName}.csv n'a pas été trouvé dans le bucket 'extractions'. Vérifiez que le fichier existe et est bien nommé.`);
+      } else if (error.message?.includes('access')) {
+        throw new Error(`Accès refusé au fichier ${countryName}.csv. Vérifiez les permissions du bucket.`);
+      } else {
+        throw new Error(`Erreur lors du chargement des données pour ${countryName}: ${error.message}`);
+      }
     }
   }
 

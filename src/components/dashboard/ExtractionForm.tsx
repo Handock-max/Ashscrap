@@ -213,17 +213,17 @@ export const ExtractionForm = () => {
                 
                 {/* Industries sélectionnées */}
                 {selectedIndustries.length > 0 && (
-                  <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-md border">
+                  <div className="flex flex-wrap gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
                     {selectedIndustries.map((industryValue) => {
                       const industry = apolloIndustries.find(ind => ind.value === industryValue);
                       return (
-                        <Badge key={industryValue} variant="secondary" className="flex items-center gap-1">
+                        <div key={industryValue} className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-md text-sm border border-blue-300 dark:border-blue-700">
                           <span>{industry?.label}</span>
                           <X 
-                            className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                            className="h-3 w-3 cursor-pointer text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" 
                             onClick={() => removeIndustry(industryValue)}
                           />
-                        </Badge>
+                        </div>
                       );
                     })}
                   </div>
