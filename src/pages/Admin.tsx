@@ -61,15 +61,16 @@ const Admin = () => {
       }
 
       // Check if user has admin role
-      const { data: roles } = await supabase
+      const { data: roles, error: roleError } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", session.user.id)
         .eq("role", "admin")
         .single();
 
-      if (!roles) {
-        toast.error("Accès refusé : vous n'êtes pas administrateur");
+      if (roleError || !roles) {
+        console.error('Erreur vérification admin:', roleError);
+        toast.error(`Accès refusé : vous n'êtes pas administrateur. User ID: ${session.user.id}`);
         navigate("/");
         return;
       }

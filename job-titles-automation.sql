@@ -105,12 +105,12 @@ CREATE OR REPLACE FUNCTION process_country_job_titles(
 )
 RETURNS void AS $$
 DECLARE
-  country_code text;
-  country_name text;
+  v_country_code text;
+  v_country_name text;
 BEGIN
   -- Normaliser les noms
-  country_name := initcap(country_input);
-  country_code := lower(country_input);
+  v_country_name := initcap(country_input);
+  v_country_code := lower(country_input);
   
   -- Insérer ou mettre à jour les données
   INSERT INTO public.job_titles_by_country (
@@ -120,8 +120,8 @@ BEGIN
     total_profiles,
     status
   ) VALUES (
-    country_code, 
-    country_name, 
+    v_country_code, 
+    v_country_name, 
     job_titles_json,
     total_profiles_count,
     'active'
@@ -134,7 +134,7 @@ BEGIN
     last_updated = now();
   
   RAISE NOTICE 'Updated job titles for %: % unique titles, % total profiles', 
-    country_name, jsonb_array_length(job_titles_json), total_profiles_count;
+    v_country_name, jsonb_array_length(job_titles_json), total_profiles_count;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -142,16 +142,16 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION remove_country_data(file_path text)
 RETURNS void AS $$
 DECLARE
-  country_code text;
+  v_country_code text;
 BEGIN
   -- Extraire le nom du pays
-  country_code := lower(regexp_replace(file_path, '\.csv$', '', 'i'));
+  v_country_code := lower(regexp_replace(file_path, '\.csv$', '', 'i'));
   
   -- Supprimer l'entrée
   DELETE FROM public.job_titles_by_country 
-  WHERE country_code = country_code;
+  WHERE country_code = v_country_code;
   
-  RAISE NOTICE 'Removed data for country: %', country_code;
+  RAISE NOTICE 'Removed data for country: %', v_country_code;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -159,14 +159,14 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION get_job_titles_for_country(country_input text)
 RETURNS jsonb AS $$
 DECLARE
-  country_code text;
+  v_country_code text;
   result jsonb;
 BEGIN
-  country_code := lower(country_input);
+  v_country_code := lower(country_input);
   
   SELECT job_titles INTO result
   FROM public.job_titles_by_country
-  WHERE country_code = country_code
+  WHERE country_code = v_country_code
     AND status = 'active';
   
   RETURN COALESCE(result, '[]'::jsonb);

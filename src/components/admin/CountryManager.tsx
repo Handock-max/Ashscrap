@@ -34,7 +34,15 @@ export const CountryManager = () => {
   }, []);
 
   const loadData = async () => {
-    await Promise.all([loadCountries(), loadStorageFiles()]);
+    setIsLoading(true);
+    try {
+      await Promise.all([loadCountries(), loadStorageFiles()]);
+    } catch (error) {
+      console.error('Erreur lors du chargement:', error);
+      toast.error('Erreur lors du chargement des données');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const loadCountries = async () => {
@@ -178,9 +186,9 @@ export const CountryManager = () => {
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 mb-6">
-            <Button onClick={loadData} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Actualiser
+            <Button onClick={loadData} variant="outline" disabled={isLoading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              {isLoading ? 'Chargement...' : 'Actualiser'}
             </Button>
           </div>
 
@@ -203,6 +211,7 @@ export const CountryManager = () => {
                       onClick={() => processCSVFile(file.name)}
                       disabled={processingCountry === file.name.replace('.csv', '')}
                       size="sm"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       {processingCountry === file.name.replace('.csv', '') ? (
                         <>
