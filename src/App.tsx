@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
+import Extractions from "./pages/Extractions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const AppRoutes = () => {
       <AppLayout isAdmin={isAdmin}>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/extractions" element={<Extractions />} />
           <Route path="/profile" element={<Profile />} />
           <Route 
             path="/admin" 

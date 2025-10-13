@@ -8,7 +8,8 @@ import {
   Menu,
   X,
   User,
-  Settings
+  Settings,
+  Download
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui-store';
@@ -33,6 +34,12 @@ const navigationItems: NavigationItem[] = [
     label: 'Tableau de bord',
     icon: Home,
     href: '/'
+  },
+  {
+    id: 'extractions',
+    label: 'Mes Extractions',
+    icon: Download,
+    href: '/extractions'
   },
   {
     id: 'profile',
