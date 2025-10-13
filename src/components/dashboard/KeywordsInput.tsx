@@ -48,19 +48,15 @@ export const KeywordsInput = ({ keywords, onChange, disabled }: KeywordsInputPro
           disabled={disabled || keywords.length >= 5}
         />
         {keywords.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
             {keywords.map((keyword, index) => (
-              <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                {keyword}
-                <button
-                  type="button"
+              <div key={index} className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-md text-sm border border-blue-300 dark:border-blue-700">
+                <span>{keyword}</span>
+                <X
+                  className="h-3 w-3 cursor-pointer text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                   onClick={() => removeKeyword(index)}
-                  disabled={disabled}
-                  className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
+                />
+              </div>
             ))}
           </div>
         )}

@@ -155,7 +155,18 @@ export const CountryManager = () => {
       if (industryIndex !== -1) {
         const industry = values[industryIndex];
         if (industry && industry.length > 0) {
-          industryCounts.set(industry, (industryCounts.get(industry) || 0) + 1);
+          // Filtrer les industries indésirables
+          const cleanIndustry = industry.trim();
+          
+          // Exclure si :
+          // - Vide après trim
+          // - Contient un arobase (@)
+          // - Contient des chiffres
+          if (cleanIndustry.length > 0 && 
+              !cleanIndustry.includes('@') && 
+              !/\d/.test(cleanIndustry)) {
+            industryCounts.set(cleanIndustry, (industryCounts.get(cleanIndustry) || 0) + 1);
+          }
         }
       }
     }

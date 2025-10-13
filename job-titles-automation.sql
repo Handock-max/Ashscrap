@@ -17,25 +17,9 @@ CREATE TABLE IF NOT EXISTS public.job_titles_by_country (
   CONSTRAINT job_titles_by_country_country_code_unique UNIQUE (country_code)
 );
 
--- 1b. Créer la table pour stocker les industries par pays
-CREATE TABLE IF NOT EXISTS public.industries_by_country (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  country_code text NOT NULL, -- france, chine, usa, etc.
-  country_name text NOT NULL, -- France, Chine, USA, etc.
-  industries jsonb NOT NULL DEFAULT '[]'::jsonb, -- [{"industry": "Technology", "count": 250}, ...]
-  total_profiles integer DEFAULT 0,
-  last_updated timestamp with time zone DEFAULT now(),
-  status text DEFAULT 'active' CHECK (status IN ('active', 'processing', 'error')),
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT industries_by_country_pkey PRIMARY KEY (id),
-  CONSTRAINT industries_by_country_country_code_unique UNIQUE (country_code)
-);
-
 -- 2. Index pour les performances
 CREATE INDEX IF NOT EXISTS idx_job_titles_country_code ON public.job_titles_by_country(country_code);
 CREATE INDEX IF NOT EXISTS idx_job_titles_status ON public.job_titles_by_country(status);
-CREATE INDEX IF NOT EXISTS idx_industries_country_code ON public.industries_by_country(country_code);
-CREATE INDEX IF NOT EXISTS idx_industries_status ON public.industries_by_country(status);
 
 -- 3. Fonction pour parser un CSV et extraire les postes uniques
 CREATE OR REPLACE FUNCTION extract_job_titles_from_csv(csv_content text)
@@ -113,11 +97,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 4. Fonction pour traiter manuellement les données d'un pays (postes ET industries)
-CREATE OR REPLACE FUNCTION process_country_data(
+-- 4. Fonction pour traiter manuellement les données d'un pays
+CREATE OR REPLACE FUNCTION process_country_job_titles(
   country_input text,
   job_titles_json jsonb,
-  industries_json jsonb,
   total_profiles_count integer DEFAULT 0
 )
 RETURNS void AS $$
@@ -129,7 +112,7 @@ BEGIN
   v_country_name := initcap(country_input);
   v_country_code := lower(country_input);
   
-  -- Insérer ou mettre à jour les postes
+  -- Insérer ou mettre à jour les données
   INSERT INTO public.job_titles_by_country (
     country_code, 
     country_name, 
@@ -150,29 +133,8 @@ BEGIN
     status = 'active',
     last_updated = now();
   
-  -- Insérer ou mettre à jour les industries
-  INSERT INTO public.industries_by_country (
-    country_code, 
-    country_name, 
-    industries,
-    total_profiles,
-    status
-  ) VALUES (
-    v_country_code, 
-    v_country_name, 
-    industries_json,
-    total_profiles_count,
-    'active'
-  )
-  ON CONFLICT (country_code) 
-  DO UPDATE SET 
-    industries = EXCLUDED.industries,
-    total_profiles = EXCLUDED.total_profiles,
-    status = 'active',
-    last_updated = now();
-  
-  RAISE NOTICE 'Updated data for %: % job titles, % industries, % total profiles', 
-    v_country_name, jsonb_array_length(job_titles_json), jsonb_array_length(industries_json), total_profiles_count;
+  RAISE NOTICE 'Updated job titles for %: % unique titles, % total profiles', 
+    v_country_name, jsonb_array_length(job_titles_json), total_profiles_count;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -185,11 +147,8 @@ BEGIN
   -- Extraire le nom du pays
   v_country_code := lower(regexp_replace(file_path, '\.csv$', '', 'i'));
   
-  -- Supprimer les entrées des deux tables
+  -- Supprimer l'entrée
   DELETE FROM public.job_titles_by_country 
-  WHERE country_code = v_country_code;
-  
-  DELETE FROM public.industries_by_country 
   WHERE country_code = v_country_code;
   
   RAISE NOTICE 'Removed data for country: %', v_country_code;
@@ -228,32 +187,13 @@ FROM public.job_titles_by_country
 WHERE status = 'active'
 ORDER BY country_name;
 
--- 7. Fonction pour obtenir les industries d'un pays
-CREATE OR REPLACE FUNCTION get_industries_for_country(country_input text)
-RETURNS jsonb AS $$
-DECLARE
-  v_country_code text;
-  result jsonb;
-BEGIN
-  v_country_code := lower(country_input);
-  
-  SELECT industries INTO result
-  FROM public.industries_by_country
-  WHERE country_code = v_country_code
-    AND status = 'active';
-  
-  RETURN COALESCE(result, '[]'::jsonb);
-END;
-$$ LANGUAGE plpgsql;
-
 -- 8. Fonction RPC pour l'API (accessible depuis le frontend)
-CREATE OR REPLACE FUNCTION get_countries_with_data()
+CREATE OR REPLACE FUNCTION get_countries_with_job_titles()
 RETURNS TABLE(
   country_code text,
   country_name text,
   total_profiles integer,
   unique_job_titles integer,
-  unique_industries integer,
   last_updated timestamp with time zone
 ) AS $$
 BEGIN
@@ -263,10 +203,8 @@ BEGIN
     jt.country_name,
     jt.total_profiles,
     jsonb_array_length(jt.job_titles) as unique_job_titles,
-    COALESCE(jsonb_array_length(ind.industries), 0) as unique_industries,
     jt.last_updated
   FROM public.job_titles_by_country jt
-  LEFT JOIN public.industries_by_country ind ON jt.country_code = ind.country_code
   WHERE jt.status = 'active'
   ORDER BY jt.country_name;
 END;
@@ -274,26 +212,13 @@ $$ LANGUAGE plpgsql;
 
 -- 9. Permissions RLS (Row Level Security)
 ALTER TABLE public.job_titles_by_country ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.industries_by_country ENABLE ROW LEVEL SECURITY;
 
--- Politiques pour lecture publique (tous les utilisateurs authentifiés)
+-- Politique pour lecture publique (tous les utilisateurs authentifiés)
 CREATE POLICY "Allow read access to job titles" ON public.job_titles_by_country
   FOR SELECT USING (auth.role() = 'authenticated');
 
-CREATE POLICY "Allow read access to industries" ON public.industries_by_country
-  FOR SELECT USING (auth.role() = 'authenticated');
-
--- Politiques pour écriture admin seulement
+-- Politique pour écriture admin seulement
 CREATE POLICY "Allow admin write access to job titles" ON public.job_titles_by_country
-  FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM public.user_roles 
-      WHERE user_id = auth.uid() 
-      AND role = 'admin'
-    )
-  );
-
-CREATE POLICY "Allow admin write access to industries" ON public.industries_by_country
   FOR ALL USING (
     EXISTS (
       SELECT 1 FROM public.user_roles 
