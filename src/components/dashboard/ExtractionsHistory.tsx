@@ -12,27 +12,59 @@ interface Extraction {
   id: string;
   country: string;
   company_type: string;
-  company_age: string;
   file_format: string;
   status: string;
   file_url: string | null;
   duration: number | null;
+  total_results: number | null;
   created_at: string;
   completed_at: string | null;
+  filters: any;
+  user_id: string;
+  profiles?: {
+    email: string;
+  };
 }
 
 export const ExtractionsHistory = () => {
   const [extractions, setExtractions] = useState<Extraction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const fetchExtractions = async () => {
       try {
-        const { data, error } = await supabase
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Vérifier si l'utilisateur est admin
+        const { data: adminRole } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .single();
+
+        const userIsAdmin = !!adminRole;
+        setIsAdmin(userIsAdmin);
+
+        let query = supabase
           .from("extractions")
-          .select("*")
+          .select(`
+            *,
+            profiles:user_id (
+              email
+            )
+          `)
           .order("created_at", { ascending: false })
-          .limit(10);
+          .limit(20);
+
+        // Si pas admin, filtrer par user_id
+        if (!userIsAdmin) {
+          query = query.eq("user_id", user.id).limit(10);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
         setExtractions(data || []);
@@ -68,13 +100,27 @@ export const ExtractionsHistory = () => {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string }> = {
-      pending: { variant: "secondary", label: "En cours" },
+      pending: { variant: "secondary", label: "En attente" },
+      processing: { variant: "outline", label: "En cours" },
       completed: { variant: "default", label: "Terminé" },
+      failed: { variant: "destructive", label: "Erreur" },
       error: { variant: "destructive", label: "Erreur" },
     };
 
     const config = variants[status] || variants.pending;
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+    return <Badge variant={config.variant}><span>{config.label}</span></Badge>;
+  };
+
+  const formatExtractionType = (extraction: Extraction) => {
+    const countryName = extraction.country;
+    const industries = extraction.filters?.industries;
+    
+    if (industries && Array.isArray(industries) && industries.length > 0) {
+      const industryCount = industries.length;
+      return `${countryName} - ${industryCount} secteur${industryCount > 1 ? 's' : ''}`;
+    }
+    
+    return `${countryName} - ${extraction.company_type || 'Tous secteurs'}`;
   };
 
   if (isLoading) {
@@ -91,7 +137,12 @@ export const ExtractionsHistory = () => {
     <Card>
       <CardHeader>
         <CardTitle className="text-2xl">Historique des extractions</CardTitle>
-        <CardDescription>Les 10 dernières extractions lancées</CardDescription>
+        <CardDescription>
+          {isAdmin 
+            ? "Les 20 dernières extractions de tous les utilisateurs" 
+            : "Vos 10 dernières extractions"
+          }
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {extractions.length === 0 ? (
@@ -104,9 +155,10 @@ export const ExtractionsHistory = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead>Extraction</TableHead>
+                  {isAdmin && <TableHead>Utilisateur</TableHead>}
+                  <TableHead>Résultats</TableHead>
                   <TableHead>Statut</TableHead>
-                  <TableHead>Durée</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -117,23 +169,48 @@ export const ExtractionsHistory = () => {
                       {format(new Date(extraction.created_at), "dd MMM yyyy HH:mm", { locale: fr })}
                     </TableCell>
                     <TableCell>
-                      {extraction.country} - {extraction.company_type}
+                      <div className="space-y-1">
+                        <div className="font-medium">{formatExtractionType(extraction)}</div>
+                        {extraction.filters?.companySize && (
+                          <div className="text-xs text-muted-foreground">
+                            {extraction.filters.companySize} employés
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        <div className="text-sm">
+                          {extraction.profiles?.email || extraction.user_id}
+                        </div>
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      {extraction.total_results ? (
+                        <span className="font-medium text-green-600">
+                          {extraction.total_results} résultats
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell>{getStatusBadge(extraction.status)}</TableCell>
-                    <TableCell>
-                      {extraction.duration ? `${extraction.duration}s` : "-"}
-                    </TableCell>
                     <TableCell className="text-right">
-                      {extraction.file_url ? (
+                      {extraction.status === 'completed' && extraction.file_url ? (
                         <Button size="sm" variant="outline" asChild>
                           <a href={extraction.file_url} download>
                             <Download className="h-4 w-4 mr-2" />
                             Télécharger
                           </a>
                         </Button>
+                      ) : extraction.status === 'failed' ? (
+                        <Button size="sm" variant="outline" disabled>
+                          Échec
+                        </Button>
                       ) : (
                         <Button size="sm" variant="outline" disabled>
-                          En attente
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          En cours
                         </Button>
                       )}
                     </TableCell>

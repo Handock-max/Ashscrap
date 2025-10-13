@@ -50,7 +50,7 @@ export class CEOExtractionService {
     try {
       // Télécharger le fichier CSV depuis Supabase Storage
       const { data: csvBlob, error } = await this.supabaseClient.storage
-        .from('ceo-database')
+        .from('extractions')
         .download(`${countryName}.csv`);
 
       if (error) throw error;
@@ -300,10 +300,39 @@ export class CEOExtractionService {
 
     if (error) throw error;
 
+    // 3. Sauvegarder le fichier dans le bucket download avec expiration 7 jours
+    const csvContent = this.generateCSVContent(filteredCEOs);
+    const filename = `${user.user.id}/${extraction.id}.csv`;
+
+    const { error: uploadError } = await this.supabaseClient.storage
+      .from('download')
+      .upload(filename, csvContent, {
+        contentType: 'text/csv',
+        upsert: true
+      });
+
+    if (uploadError) {
+      console.error('Erreur upload fichier:', uploadError);
+      // Ne pas faire échouer l'extraction si l'upload échoue
+    }
+
+    // 4. Générer URL signée (7 jours)
+    const { data: signedUrl } = await this.supabaseClient.storage
+      .from('download')
+      .createSignedUrl(filename, 604800); // 7 jours en secondes
+
+    // 5. Mettre à jour l'extraction avec l'URL du fichier
+    if (signedUrl?.signedUrl) {
+      await this.supabaseClient
+        .from('extractions')
+        .update({ file_url: signedUrl.signedUrl })
+        .eq('id', extraction.id);
+    }
+
     return {
-      extraction,
+      extraction: { ...extraction, file_url: signedUrl?.signedUrl },
       totalResults: filteredCEOs.length,
-      csvContent: this.generateCSVContent(filteredCEOs)
+      csvContent: csvContent
     };
   }
 }
