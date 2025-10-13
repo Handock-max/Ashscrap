@@ -149,6 +149,10 @@ export type Database = {
         Args: {}
         Returns: Json
       }
+      cleanup_expired_extractions: {
+        Args: {}
+        Returns: number
+      }
     }
     Enums: {
       app_role: "admin" | "user"

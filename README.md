@@ -1,73 +1,83 @@
-# WorkFlow Hub
+# Ash Scrap - Extraction de données B2B
 
-A professional data extraction platform with automated workflows.
+## 🚀 Démarrage rapide
 
-## Project Overview
+### 1. Configuration Supabase
 
-WorkFlow Hub is a React-based application that provides data extraction capabilities with an intuitive user interface and admin management features.
+1. Créer un projet sur [supabase.com](https://supabase.com)
+2. Exécuter le script SQL complet :
+   ```sql
+   -- Copier-coller le contenu de :
+   -- supabase/migrations/ash_scrap_complete.sql
+   ```
+3. Créer un bucket Storage nommé `extractions` (public)
 
-## Development Setup
+### 2. Variables d'environnement
 
-You can edit this code using your preferred IDE. Clone this repository and start developing locally.
+Créer `.env.local` :
+```env
+VITE_SUPABASE_URL=https://ton-projet.supabase.co
+VITE_SUPABASE_ANON_KEY=ta_cle_anon_supabase
+VITE_EXTRACTION_WORKER_URL=https://ton-worker.workers.dev
+```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### 3. Installation et démarrage
 
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### 4. Cloudflare Worker (optionnel)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Pour les extractions automatisées via APIs :
 
-**Use GitHub Codespaces**
+1. Configurer le worker avec `worker.js` et `wrangler.toml`
+2. Suivre le guide `CLOUDFLARE_WORKER_SETUP.md`
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 🎯 Fonctionnalités
 
-## What technologies are used for this project?
+- ✅ **Authentification** complète (inscription, connexion)
+- ✅ **Gestion utilisateurs** (admin peut supprimer)
+- ✅ **Extractions manuelles** avec formulaire
+- ✅ **Extractions automatisées** via Cloudflare Worker
+- ✅ **Expiration automatique** des fichiers (7 jours)
+- ✅ **Interface admin** complète
+- ✅ **Thèmes** clair/sombre
+- ✅ **Branding** personnalisable
 
-This project is built with:
+## 🔧 APIs supportées
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- **OpenStreetMap Nominatim** (gratuit)
+- **Apollo.io** (recherche dirigeants)
+- **Kaspr.io** (enrichissement contacts)
 
-## How can I deploy this project?
+## 📊 Architecture
 
-This project can be deployed to various platforms:
-
-- **Vercel**: Connect your GitHub repository to Vercel for automatic deployments
-- **Netlify**: Deploy directly from your Git repository
-- **GitHub Pages**: Use GitHub Actions for automated deployment
-
-Make sure to configure your environment variables for Supabase and other services before deployment.
-
-## Environment Variables
-
-Create a `.env` file in the root directory with the following variables:
-
-```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_N8N_WEBHOOK_URL=your_n8n_webhook_url
 ```
+Frontend (React + Supabase)
+    ↓
+Cloudflare Worker (optionnel)
+    ↓
+APIs externes (OpenStreetMap → Apollo → Kaspr)
+    ↓
+Supabase (Storage + Database)
+```
+
+## 🗄️ Base de données
+
+- **profiles** - Profils utilisateurs
+- **user_roles** - Rôles (admin/user)
+- **extractions** - Historique des extractions
+- **app_settings** - Configuration de l'app
+
+## 🔒 Sécurité
+
+- **RLS** activé sur toutes les tables
+- **Authentification** Supabase
+- **Permissions** par rôle
+- **Validation** côté client et serveur
+
+## 📝 Licence
+
+MIT

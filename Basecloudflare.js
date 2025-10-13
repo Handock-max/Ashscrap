@@ -35,11 +35,7 @@ export default {
       if (url.pathname === '/continue' && request.method === 'POST') {
         return await continueWorkflow(request, env, corsHeaders);
       }
-
-      if (url.pathname === '/force-continue' && request.method === 'POST') {
-        return await forceCompleteWorkflow(request, env, corsHeaders);
-      }
-
+    
       return new Response('Not Found', { status: 404, headers: corsHeaders });
     } catch (error) {
       console.error('Worker error:', error);
@@ -88,63 +84,6 @@ async function continueWorkflow(request, env, corsHeaders) {
     success: true,
     extraction_id,
     message: 'Step executed'
-  }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
-}
-
-async function forceCompleteWorkflow(request, env, corsHeaders) {
-  const { extraction_id } = await request.json();
-
-  const workflow = await getWorkflowState(extraction_id, env);
-  if (!workflow) {
-    return new Response('Workflow not found', { status: 404, headers: corsHeaders });
-  }
-
-  // Forcer des données de test si pas de données collectées
-  if (workflow.places_data.length === 0) {
-    workflow.places_data = [
-      {
-        name: "Pizza Roma",
-        address: "123 Rue de la Paix, 75001 Paris, France",
-        website: "https://pizza-roma.fr",
-        phone: "01 23 45 67 89",
-        lat: 48.8566,
-        lon: 2.3522,
-        data_source: 'test_data'
-      },
-      {
-        name: "Ristorante Milano",
-        address: "456 Avenue des Champs, 69000 Lyon, France",
-        website: "https://milano-lyon.fr",
-        phone: "04 78 90 12 34",
-        lat: 45.7640,
-        lon: 4.8357,
-        data_source: 'test_data'
-      },
-      {
-        name: "Trattoria Bella Vista",
-        address: "789 Boulevard Saint-Germain, 75006 Paris, France",
-        website: "https://bellavista-paris.com",
-        phone: "01 45 67 89 01",
-        lat: 48.8534,
-        lon: 2.3488,
-        data_source: 'test_data'
-      }
-    ];
-  }
-
-  // Forcer la finalisation
-  workflow.current_step = 'finalizing';
-  await saveWorkflowState(extraction_id, workflow, env);
-  await updateExtractionStatus(extraction_id, 'finalizing', 90, env);
-  await executeFinalizing(workflow, env);
-
-  return new Response(JSON.stringify({
-    success: true,
-    extraction_id,
-    message: 'Workflow forced to completion with test data',
-    places_added: workflow.places_data.length
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
@@ -473,195 +412,110 @@ async function scheduleNextStep(extractionId, env) {
 // === API FUNCTIONS ===
 
 async function collectPlacesBatch(country, companyType, keywords, page, env) {
-  if (!env.APOLLO_API_KEY) {
-    console.log('Apollo API non configuré, utilisation de données de test');
-    return []; // Pas d'Apollo = pas de données
-  }
+  // Utiliser Overpass API pour des données plus riches
+  const countryCode = getCountryCode(country);
+  const searchTerms = [companyType, ...keywords].join('|');
 
-  return await collectChainsApollo(country, companyType, keywords, page, env);
+  // Requête Overpass pour chercher des commerces/entreprises
+  const overpassQuery = `
+    [out:json][timeout:25];
+    (
+      node["shop"~"${searchTerms}",i]["addr:country"="${countryCode}"];
+      node["amenity"~"${searchTerms}",i]["addr:country"="${countryCode}"];
+      node["office"]["addr:country"="${countryCode}"];
+      way["shop"~"${searchTerms}",i]["addr:country"="${countryCode}"];
+      way["amenity"~"${searchTerms}",i]["addr:country"="${countryCode}"];
+      way["office"]["addr:country"="${countryCode}"];
+    );
+    out center meta;
+  `;
+
+  try {
+    const response = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'AshScrap/1.0'
+      },
+      body: `data=${encodeURIComponent(overpassQuery)}`
+    });
+
+    if (!response.ok) {
+      // Fallback vers Nominatim si Overpass échoue
+      return await collectPlacesNominatim(country, companyType, keywords, page);
+    }
+
+    const data = await response.json();
+    const places = [];
+
+    for (const element of data.elements || []) {
+      const tags = element.tags || {};
+      const lat = element.lat || element.center?.lat;
+      const lon = element.lon || element.center?.lon;
+
+      if (lat && lon) {
+        places.push({
+          name: tags.name || tags.brand || tags['addr:housename'] || 'Entreprise sans nom',
+          address: buildAddress(tags),
+          website: tags.website || tags['contact:website'],
+          phone: tags.phone || tags['contact:phone'],
+          email: tags.email || tags['contact:email'],
+          opening_hours: tags.opening_hours,
+          shop_type: tags.shop || tags.amenity || tags.office,
+          lat: parseFloat(lat),
+          lon: parseFloat(lon),
+          osm_id: element.id,
+          data_source: 'overpass_api'
+        });
+      }
+    }
+
+    // Pagination simulée (Overpass ne supporte pas l'offset natif)
+    const startIdx = (page - 1) * BATCH_SIZE;
+    const endIdx = startIdx + BATCH_SIZE;
+
+    return places.slice(startIdx, endIdx);
+
+  } catch (error) {
+    console.error('Erreur Overpass API, fallback vers Nominatim:', error);
+    return await collectPlacesNominatim(country, companyType, keywords, page);
+  }
 }
 
-// Collecte des chaînes via Apollo Organizations API
-async function collectChainsApollo(country, companyType, keywords, page, env) {
-  const searchTerms = [companyType, ...keywords].join(' ');
-
-  const apolloQuery = {
-    // Chercher des ORGANISATIONS (pas des personnes)
-    q_keywords: searchTerms,
-    organization_locations: [getApolloLocation(country)],
-    // Filtrer par taille = indicateur de chaîne (50+ employés)
-    organization_num_employees_ranges: ["51-200", "201-500", "501-1000", "1001+"],
-    // Secteurs pertinents
-    organization_industry_tag_ids: getIndustryIds(companyType),
-    page: page,
-    per_page: 25 // Apollo limite à 25 orgs par requête
-  };
-
-  console.log(`Apollo Organizations query: ${searchTerms} in ${country} (page ${page})`);
-
-  const response = await fetch('https://api.apollo.io/v1/organizations/search', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Api-Key': env.APOLLO_API_KEY
-    },
-    body: JSON.stringify(apolloQuery)
-  });
-
-  if (!response.ok) {
-    console.error(`Apollo Organizations API error: ${response.status}`);
-    throw new Error(`Apollo Organizations API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  console.log(`Apollo returned ${data.organizations?.length || 0} organizations for page ${page}`);
-
-  return (data.organizations || []).map(org => ({
-    name: org.name,
-    address: buildApolloAddress(org),
-    website: org.website_url,
-    phone: org.phone,
-    employee_count: org.estimated_num_employees,
-    industry: org.industry,
-    founded_year: org.founded_year,
-    apollo_id: org.id,
-    lat: org.primary_location?.latitude,
-    lon: org.primary_location?.longitude,
-    data_source: 'apollo_organizations'
-  }));
-}
-
-// Collecte via Nominatim (plus fiable que Overpass)
+// Fallback vers Nominatim
 async function collectPlacesNominatim(country, companyType, keywords, page) {
   const query = [companyType, ...keywords].join(' ');
   const countryCode = getCountryCode(country);
-
-  // Limiter à 50 résultats par page pour éviter les timeouts
-  const limit = Math.min(BATCH_SIZE, 50);
-  const offset = (page - 1) * limit;
+  const offset = (page - 1) * BATCH_SIZE;
 
   const url = `https://nominatim.openstreetmap.org/search?` + new URLSearchParams({
     q: query,
     countrycodes: countryCode,
     format: 'json',
-    limit: limit.toString(),
+    limit: BATCH_SIZE.toString(),
     offset: offset.toString(),
     addressdetails: '1',
-    extratags: '1',
-    'accept-language': 'fr'
+    extratags: '1'
   });
 
-  console.log(`Nominatim query: ${query} in ${country} (page ${page})`);
-
   const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'AshScrap/1.0',
-      'Accept': 'application/json'
-    }
+    headers: { 'User-Agent': 'AshScrap/1.0' }
   });
 
   if (!response.ok) {
-    console.error(`Nominatim API error: ${response.status}`);
     throw new Error(`Nominatim API error: ${response.status}`);
   }
 
   const data = await response.json();
-  console.log(`Nominatim returned ${data.length} results for page ${page}`);
 
   return data.map(item => ({
-    name: item.display_name.split(',')[0].trim(),
+    name: item.display_name.split(',')[0],
     address: item.display_name,
-    website: item.extratags?.website || item.extratags?.['contact:website'],
-    phone: item.extratags?.phone || item.extratags?.['contact:phone'],
-    email: item.extratags?.email || item.extratags?.['contact:email'],
+    website: item.extratags?.website,
+    phone: item.extratags?.phone,
     lat: parseFloat(item.lat),
     lon: parseFloat(item.lon),
-    osm_id: item.osm_id,
-    place_type: item.type,
     data_source: 'nominatim'
-  }));
-}
-
-// === YELP API (Gratuit - 5000 requêtes/jour) ===
-async function collectPlacesYelp(country, companyType, keywords, page, env) {
-  const searchTerm = [companyType, ...keywords].join(' ');
-  const location = getYelpLocation(country);
-  const limit = 50; // Max Yelp par requête
-  const offset = (page - 1) * limit;
-
-  const url = `https://api.yelp.com/v3/businesses/search?` + new URLSearchParams({
-    term: searchTerm,
-    location: location,
-    limit: limit.toString(),
-    offset: offset.toString(),
-    sort_by: 'best_match'
-  });
-
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${env.YELP_API_KEY}`,
-      'Accept': 'application/json'
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Yelp API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  console.log(`Yelp returned ${data.businesses?.length || 0} results for page ${page}`);
-
-  return (data.businesses || []).map(business => ({
-    name: business.name,
-    address: business.location?.display_address?.join(', ') || '',
-    phone: business.display_phone || business.phone,
-    website: business.url,
-    lat: business.coordinates?.latitude,
-    lon: business.coordinates?.longitude,
-    rating: business.rating,
-    review_count: business.review_count,
-    categories: business.categories?.map(cat => cat.title).join(', '),
-    data_source: 'yelp'
-  }));
-}
-
-// === FOURSQUARE API (Gratuit - 1000 requêtes/jour) ===
-async function collectPlacesFoursquare(country, companyType, keywords, page, env) {
-  const query = [companyType, ...keywords].join(' ');
-  const location = getFoursquareLocation(country);
-  const limit = 50;
-  const offset = (page - 1) * limit;
-
-  const url = `https://api.foursquare.com/v3/places/search?` + new URLSearchParams({
-    query: query,
-    near: location,
-    limit: limit.toString(),
-    offset: offset.toString()
-  });
-
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': env.FOURSQUARE_API_KEY,
-      'Accept': 'application/json'
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Foursquare API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  console.log(`Foursquare returned ${data.results?.length || 0} results for page ${page}`);
-
-  return (data.results || []).map(place => ({
-    name: place.name,
-    address: place.location?.formatted_address || '',
-    phone: place.tel,
-    website: place.website,
-    lat: place.geocodes?.main?.latitude,
-    lon: place.geocodes?.main?.longitude,
-    categories: place.categories?.map(cat => cat.name).join(', '),
-    data_source: 'foursquare'
   }));
 }
 
@@ -676,27 +530,6 @@ function buildAddress(tags) {
   if (tags['addr:country']) parts.push(tags['addr:country']);
 
   return parts.length > 0 ? parts.join(', ') : 'Adresse non disponible';
-}
-
-// Utilitaires pour les APIs
-function getYelpLocation(country) {
-  const locations = {
-    'France': 'France',
-    'Belgique': 'Belgium',
-    'Suisse': 'Switzerland',
-    'Canada': 'Canada'
-  };
-  return locations[country] || 'France';
-}
-
-function getFoursquareLocation(country) {
-  const locations = {
-    'France': 'Paris, France',
-    'Belgique': 'Brussels, Belgium',
-    'Suisse': 'Zurich, Switzerland',
-    'Canada': 'Toronto, Canada'
-  };
-  retns[country] || 'France';
 }
 
 async function searchPeopleApollo(places, env) {
@@ -1036,61 +869,4 @@ function getCountryCode(country) {
   };
 
   return codes[country] || 'fr';
-}
-
-// Mapping des pays pour Apollo
-function getApolloLocation(country) {
-  const locations = {
-    'France': 'France',
-    'Belgique': 'Belgium',
-    'Suisse': 'Switzerland',
-    'Canada': 'Canada',
-    'Allemagne': 'Germany',
-    'Espagne': 'Spain',
-    'Italie': 'Italy'
-  };
-
-  return locations[country] || 'France';
-}
-
-// Mapping des secteurs vers les IDs Apollo
-function getIndustryIds(companyType) {
-  const industries = {
-    'Restaurant': ['restaurants', 'food-and-beverages'],
-    'Commerce': ['retail', 'consumer-goods'],
-    'Hôtel': ['hospitality', 'travel-and-tourism'],
-    'Pharmacie': ['pharmaceuticals', 'health-care'],
-    'Boulangerie': ['food-and-beverages', 'retail'],
-    'Coiffeur': ['consumer-services', 'personal-care'],
-    'Garage': ['automotive'],
-    'Supermarché': ['retail', 'consumer-goods'],
-    'Fitness': ['health-wellness-and-fitness'],
-    'Banque': ['banking', 'financial-services'],
-    'Immobilier': ['real-estate'],
-    'Optique': ['health-care', 'retail'],
-    'Vêtements': ['apparel-and-fashion', 'retail'],
-    'Électronique': ['consumer-electronics', 'retail'],
-    'Bricolage': ['retail', 'construction'],
-    'Café': ['restaurants', 'food-and-beverages'],
-    'Clinique': ['health-care', 'medical-practice'],
-    'École': ['education-management', 'e-learning'],
-    'Nettoyage': ['facilities-services'],
-    'Livraison': ['logistics-and-supply-chain', 'transportation']
-  };
-
-  return industries[companyType] || ['retail'];
-}
-
-// Construire une adresse à partir des données Apollo
-function buildApolloAddress(org) {
-  const location = org.primary_location;
-  if (!location) return 'Adresse non disponible';
-
-  const parts = [];
-  if (location.street_address) parts.push(location.street_address);
-  if (location.city) parts.push(location.city);
-  if (location.postal_code) parts.push(location.postal_code);
-  if (location.country) parts.push(location.country);
-
-  return parts.length > 0 ? parts.join(', ') : 'Adresse non disponible';
 }

@@ -73,7 +73,11 @@ export const ExtractionForm = () => {
         // Démarrer le polling du statut
         ExtractionService.pollExtractionStatus(extraction.id, (status) => {
           console.log('Statut extraction:', status);
-          // Ici on pourrait mettre à jour l'UI en temps réel
+          
+          // Vérifier si l'extraction a échoué à cause de la taille
+          if (status.status === 'failed' && status.error_message?.includes('Extraction trop lourde')) {
+            toast.error('Extraction trop lourde, veuillez revoir vos paramètres');
+          }
         });
       }
 

@@ -1,7 +1,8 @@
 -- =====================================================
--- WORKFLOW HUB - MIGRATION PRODUCTION (PLAN GRATUIT)
+-- ASH SCRAP - MIGRATION COMPLÈTE
 -- =====================================================
--- Migration unique pour WorkFlow Hub - Plan gratuit Supabase uniquement
+-- Migration unique pour démarrer le projet à zéro
+-- Inclut : Auth, Extractions, Admin, Expiration 7 jours
 -- =====================================================
 
 -- =====================================================
@@ -41,7 +42,7 @@ CREATE TABLE public.user_roles (
   UNIQUE(user_id, role)
 );
 
--- Table des extractions
+-- Table des extractions (avec expiration 7 jours)
 CREATE TABLE public.extractions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
@@ -53,7 +54,8 @@ CREATE TABLE public.extractions (
   file_url TEXT,
   duration INTEGER,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL,
-  completed_at TIMESTAMP WITH TIME ZONE
+  completed_at TIMESTAMP WITH TIME ZONE,
+  expires_at TIMESTAMP WITH TIME ZONE DEFAULT (now() + INTERVAL '7 days')
 );
 
 -- Table des paramètres de l'application
@@ -74,6 +76,7 @@ CREATE INDEX idx_user_roles_user_id ON public.user_roles(user_id);
 CREATE INDEX idx_extractions_user_id ON public.extractions(user_id);
 CREATE INDEX idx_extractions_status ON public.extractions(status);
 CREATE INDEX idx_extractions_created_at ON public.extractions(created_at DESC);
+CREATE INDEX idx_extractions_expires_at ON public.extractions(expires_at);
 
 -- =====================================================
 -- 4. FONCTIONS UTILITAIRES
@@ -103,6 +106,93 @@ AS $$
     FROM public.user_roles
     WHERE user_id = _user_id AND role = _role
   )
+$$;
+
+-- Fonction de nettoyage des extractions expirées
+CREATE OR REPLACE FUNCTION public.cleanup_expired_extractions()
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  _deleted_count INTEGER;
+BEGIN
+  DELETE FROM public.extractions 
+  WHERE expires_at < now() 
+  AND status = 'completed';
+  
+  GET DIAGNOSTICS _deleted_count = ROW_COUNT;
+  
+  RETURN _deleted_count;
+END;
+$$;
+
+-- Fonction pour supprimer un utilisateur (admin seulement)
+CREATE OR REPLACE FUNCTION public.admin_delete_user(_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  _current_user_id UUID;
+  _is_admin BOOLEAN;
+BEGIN
+  _current_user_id := auth.uid();
+  
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles 
+    WHERE user_id = _current_user_id 
+    AND role = 'admin'
+  ) INTO _is_admin;
+  
+  IF NOT _is_admin THEN
+    RAISE EXCEPTION 'Accès refusé: seuls les administrateurs peuvent supprimer des utilisateurs';
+  END IF;
+
+  IF _current_user_id = _user_id THEN
+    RAISE EXCEPTION 'Vous ne pouvez pas supprimer votre propre compte';
+  END IF;
+
+  DELETE FROM public.extractions WHERE user_id = _user_id;
+  DELETE FROM public.user_roles WHERE user_id = _user_id;
+  DELETE FROM public.profiles WHERE id = _user_id;
+  
+  RETURN TRUE;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE EXCEPTION 'Erreur lors de la suppression: %', SQLERRM;
+END;
+$$;
+
+-- Fonction pour obtenir toutes les statistiques (admin seulement)
+CREATE OR REPLACE FUNCTION public.admin_get_all_stats()
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _current_user_id UUID;
+  _stats JSON;
+BEGIN
+  _current_user_id := auth.uid();
+  
+  IF NOT public.has_role(_current_user_id, 'admin') THEN
+    RAISE EXCEPTION 'Accès refusé: seuls les administrateurs peuvent voir toutes les statistiques';
+  END IF;
+
+  SELECT json_build_object(
+    'total', (SELECT COUNT(*) FROM public.extractions),
+    'pending', (SELECT COUNT(*) FROM public.extractions WHERE status = 'pending'),
+    'processing', (SELECT COUNT(*) FROM public.extractions WHERE status = 'processing'),
+    'completed', (SELECT COUNT(*) FROM public.extractions WHERE status = 'completed'),
+    'failed', (SELECT COUNT(*) FROM public.extractions WHERE status = 'failed'),
+    'total_users', (SELECT COUNT(*) FROM public.profiles),
+    'total_admins', (SELECT COUNT(*) FROM public.user_roles WHERE role = 'admin')
+  ) INTO _stats;
+  
+  RETURN _stats;
+END;
 $$;
 
 -- =====================================================
@@ -226,7 +316,3 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
-
--- =====================================================
--- FIN DE LA MIGRATION - PLAN GRATUIT SUPABASE
--- =====================================================
