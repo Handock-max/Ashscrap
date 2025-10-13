@@ -189,13 +189,24 @@ export const CountryManager = () => {
     }
 
     try {
-      const { error } = await supabase.rpc('remove_country_data', {
+      // Supprimer les job titles
+      const { error: jobError } = await supabase.rpc('remove_country_data', {
         file_path: `${countryCode}.csv`
       });
 
-      if (error) throw error;
+      if (jobError) throw jobError;
 
-      toast.success(`Données supprimées pour ${countryCode}`);
+      // Supprimer les industries
+      const { error: industryError } = await supabase.rpc('remove_country_industries', {
+        file_path: `${countryCode}.csv`
+      });
+
+      if (industryError) {
+        console.warn('Erreur suppression industries:', industryError);
+        // Ne pas faire échouer si les industries n'existent pas
+      }
+
+      toast.success(`Données supprimées pour ${countryCode} (postes et industries)`);
       await loadCountries();
     } catch (error: any) {
       console.error('Erreur suppression:', error);
