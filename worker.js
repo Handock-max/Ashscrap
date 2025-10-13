@@ -714,7 +714,7 @@ async function searchPeopleApollo(places, env) {
           q_organization_name: place.name,
           person_titles: ['CEO', 'CTO', 'Founder', 'Co-Founder', 'President', 'Chief', 'Manager', 'Director'],
           page: 1,
-          per_page: 10
+          per_page: 50
         })
       });
 
