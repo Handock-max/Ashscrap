@@ -21,16 +21,13 @@ interface Extraction {
   completed_at: string | null;
   filters: any;
   user_id: string;
-  profiles?: {
-    full_name?: string;
-    email?: string;
-  };
 }
 
 export const ExtractionsHistory = () => {
   const [extractions, setExtractions] = useState<Extraction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchExtractions = async () => {
@@ -51,13 +48,7 @@ export const ExtractionsHistory = () => {
 
         let query = supabase
           .from("extractions")
-          .select(`
-            *,
-            profiles!user_id (
-              full_name,
-              email
-            )
-          `)
+          .select("*")
           .order("created_at", { ascending: false })
           .limit(20);
 
@@ -70,12 +61,38 @@ export const ExtractionsHistory = () => {
 
         if (error) throw error;
         setExtractions(data || []);
+
+        // Si admin, récupérer les noms des utilisateurs
+        if (userIsAdmin && data && data.length > 0) {
+          const userIds = [...new Set(data.map(extraction => extraction.user_id))];
+          await loadUserNames(userIds);
+        }
       } catch (error) {
         console.error("Error fetching extractions:", error);
       } finally {
         setIsLoading(false);
       }
     };
+
+  const loadUserNames = async (userIds: string[]) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', userIds);
+
+      if (error) throw error;
+
+      const namesMap: Record<string, string> = {};
+      data?.forEach(profile => {
+        namesMap[profile.id] = profile.full_name || profile.email || profile.id;
+      });
+
+      setUserNames(namesMap);
+    } catch (error) {
+      console.error('Erreur chargement noms utilisateurs:', error);
+    }
+  };
 
     fetchExtractions();
 
@@ -183,9 +200,7 @@ export const ExtractionsHistory = () => {
                     {isAdmin && (
                       <TableCell>
                         <div className="text-sm">
-                          {extraction.profiles?.full_name || 
-                           extraction.profiles?.email || 
-                           extraction.user_id}
+                          {userNames[extraction.user_id] || extraction.user_id}
                         </div>
                       </TableCell>
                     )}
