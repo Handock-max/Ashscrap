@@ -38,34 +38,21 @@ const Index = () => {
       if (isAdmin) {
         // Admin voit toutes les statistiques
         setIsAdmin(true);
-        const { data: allStats, error: statsError } = await supabase.rpc('admin_get_all_stats');
-        
-        if (statsError || !allStats) {
-          // Fallback si la fonction RPC échoue
-          const { data: extractions, error } = await supabase
-            .from('extractions')
-            .select('status');
+        // Admin voit toutes les statistiques
+        const { data: extractions, error } = await supabase
+          .from('extractions')
+          .select('status');
 
-          if (error) throw error;
+        if (error) throw error;
 
-          const statsData = {
-            total: extractions?.length || 0,
-            pending: extractions?.filter((e: any) => e.status === 'pending').length || 0,
-            processing: extractions?.filter((e: any) => e.status === 'processing').length || 0,
-            completed: extractions?.filter((e: any) => e.status === 'completed').length || 0,
-            failed: extractions?.filter((e: any) => e.status === 'failed').length || 0
-          };
-          setStats(statsData);
-        } else {
-          const statsData = allStats as any;
-          setStats({
-            total: statsData.total || 0,
-            pending: statsData.pending || 0,
-            processing: statsData.processing || 0,
-            completed: statsData.completed || 0,
-            failed: statsData.failed || 0
-          });
-        }
+        const statsData = {
+          total: extractions?.length || 0,
+          pending: extractions?.filter((e: any) => e.status === 'pending').length || 0,
+          processing: extractions?.filter((e: any) => e.status === 'processing').length || 0,
+          completed: extractions?.filter((e: any) => e.status === 'completed').length || 0,
+          failed: extractions?.filter((e: any) => e.status === 'failed').length || 0
+        };
+        setStats(statsData);
       } else {
         setIsAdmin(false);
         // Utilisateur normal voit seulement ses propres stats

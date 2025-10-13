@@ -317,7 +317,7 @@ export const ExtractionForm = () => {
                     } />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
-                    <SelectItem value="">Tous les postes</SelectItem>
+                    <SelectItem value="all">Tous les postes</SelectItem>
                     {availableJobTitles.map((job) => (
                       <SelectItem key={job.title} value={job.title}>
                         <div className="flex items-center justify-between w-full">

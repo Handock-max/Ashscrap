@@ -21,9 +21,6 @@ interface Extraction {
   completed_at: string | null;
   filters: any;
   user_id: string;
-  profiles?: {
-    email: string;
-  };
 }
 
 export const ExtractionsHistory = () => {
@@ -50,12 +47,7 @@ export const ExtractionsHistory = () => {
 
         let query = supabase
           .from("extractions")
-          .select(`
-            *,
-            profiles:user_id (
-              email
-            )
-          `)
+          .select("*")
           .order("created_at", { ascending: false })
           .limit(20);
 
@@ -181,7 +173,7 @@ export const ExtractionsHistory = () => {
                     {isAdmin && (
                       <TableCell>
                         <div className="text-sm">
-                          {extraction.profiles?.email || extraction.user_id}
+                          {extraction.user_id}
                         </div>
                       </TableCell>
                     )}

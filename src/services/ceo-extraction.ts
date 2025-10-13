@@ -168,7 +168,7 @@ export class CEOExtractionService {
       }
 
       // Filtre par poste spécifique (optionnel)
-      if (filters.jobTitle) {
+      if (filters.jobTitle && filters.jobTitle !== 'all') {
         const title = ceo.Title?.toLowerCase() || '';
         if (!title.includes(filters.jobTitle.toLowerCase())) {
           return false;
