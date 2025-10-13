@@ -50,10 +50,10 @@ class CEOExtractionService {
 
       // Convertir en texte
       const csvText = await csvBlob.text();
-      
+
       // Parser le CSV
       const ceos = this.parseCSV(csvText);
-      
+
       console.log(`Loaded ${ceos.length} CEOs from ${countryName}`);
       return ceos;
 
@@ -69,15 +69,15 @@ class CEOExtractionService {
   parseCSV(csvText) {
     const lines = csvText.trim().split('\n');
     const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-    
+
     return lines.slice(1).map(line => {
       const values = this.parseCSVLine(line);
       const ceo = {};
-      
+
       headers.forEach((header, index) => {
         ceo[header] = values[index] || '';
       });
-      
+
       return ceo;
     });
   }
@@ -89,10 +89,10 @@ class CEOExtractionService {
     const result = [];
     let current = '';
     let inQuotes = false;
-    
+
     for (let i = 0; i < line.length; i++) {
       const char = line[i];
-      
+
       if (char === '"') {
         inQuotes = !inQuotes;
       } else if (char === ',' && !inQuotes) {
@@ -102,27 +102,27 @@ class CEOExtractionService {
         current += char;
       }
     }
-    
+
     result.push(current.trim());
     return result;
   }
 
   /**
-   * 6. Filtrer les CEO selon les critères
+   * 6. Filtrer les CEO selon les critères (adapté au format Apollo)
    */
   filterCEOs(ceos, filters) {
     return ceos.filter(ceo => {
-      // Filtre par secteur d'activité
-      if (filters.industry && filters.industry !== 'all') {
-        if (!ceo.industry?.toLowerCase().includes(filters.industry.toLowerCase())) {
+      // Filtre par secteur d'activité (obligatoire)
+      if (filters.industry) {
+        if (!ceo.Industry?.toLowerCase().includes(filters.industry.toLowerCase())) {
           return false;
         }
       }
 
-      // Filtre par taille d'entreprise
-      if (filters.companySize && filters.companySize !== 'all') {
-        const employeeCount = parseInt(ceo.employee_count) || 0;
-        
+      // Filtre par taille d'entreprise (obligatoire)
+      if (filters.companySize) {
+        const employeeCount = parseInt(ceo['# Employees']) || 0;
+
         switch (filters.companySize) {
           case '1-10':
             if (employeeCount < 1 || employeeCount > 10) return false;
@@ -139,38 +139,75 @@ class CEOExtractionService {
         }
       }
 
-      // Filtre par revenus
-      if (filters.revenue && filters.revenue !== 'all') {
-        const revenue = parseInt(ceo.revenue) || 0;
-        
-        switch (filters.revenue) {
-          case '0-1M':
-            if (revenue > 1000000) return false;
-            break;
-          case '1M-10M':
-            if (revenue < 1000000 || revenue > 10000000) return false;
-            break;
-          case '10M+':
-            if (revenue < 10000000) return false;
-            break;
-        }
-      }
-
-      // Filtre par ville
-      if (filters.city && filters.city !== 'all') {
-        if (!ceo.city?.toLowerCase().includes(filters.city.toLowerCase())) {
+      // Filtre par disponibilité email (toujours actif)
+      if (filters.hasEmail) {
+        if (!ceo.Email && !ceo['Secondary Email'] && !ceo['Tertiary Email']) {
           return false;
         }
       }
 
-      // Filtre par disponibilité email
-      if (filters.hasEmail) {
-        if (!ceo.email_apollo && !ceo.email_kaspr) return false;
+      // Filtre par statut email vérifié (optionnel mais recommandé)
+      if (filters.verifiedEmailOnly) {
+        if (ceo['Email Status'] !== 'Verified') {
+          return false;
+        }
       }
 
-      // Filtre par disponibilité téléphone
-      if (filters.hasPhone) {
-        if (!ceo.phone_apollo && !ceo.phone_kaspr) return false;
+      // Filtre par poste spécifique (optionnel)
+      if (filters.jobTitle) {
+        const title = ceo.Title?.toLowerCase() || '';
+        if (!title.includes(filters.jobTitle.toLowerCase())) {
+          return false;
+        }
+      }
+
+      // Filtre par mots-clés (optionnel)
+      if (filters.keywords && filters.keywords.length > 0) {
+        const searchText = [
+          ceo.Keywords,
+          ceo['Company Name'],
+          ceo.Industry,
+          ceo.Technologies
+        ].join(' ').toLowerCase();
+
+        const hasKeyword = filters.keywords.some(keyword => 
+          searchText.includes(keyword.toLowerCase())
+        );
+
+        if (!hasKeyword) return false;
+      }
+
+      // Filtre par nombre de sites retail (optionnel)
+      if (filters.retailLocations) {
+        // Chercher dans les colonnes qui pourraient contenir cette info
+        const locationInfo = [
+          ceo['# Employees'], // Parfois corrélé avec le nombre de sites
+          ceo.Keywords,
+          ceo['Company Name']
+        ].join(' ').toLowerCase();
+
+        // Logique basique pour le nombre de sites
+        // (à adapter selon la structure réelle des données Apollo)
+        switch (filters.retailLocations) {
+          case '1':
+            // Au moins 1 site (pas de filtre spécifique)
+            break;
+          case '2-5':
+            // Logique à implémenter selon les données disponibles
+            break;
+          case '6-10':
+            // Logique à implémenter selon les données disponibles
+            break;
+          case '11-20':
+            // Logique à implémenter selon les données disponibles
+            break;
+          case '21-50':
+            // Logique à implémenter selon les données disponibles
+            break;
+          case '50+':
+            // Logique à implémenter selon les données disponibles
+            break;
+        }
       }
 
       return true;
@@ -183,7 +220,7 @@ class CEOExtractionService {
   async saveExtractionFile(ceos, extractionId, userId) {
     const csvContent = this.generateCSVContent(ceos);
     const filename = `${userId}/${extractionId}.csv`;
-    
+
     // Upload vers user-extractions bucket (temporaire)
     const { data, error } = await this.supabase.storage
       .from('user-extractions')
@@ -212,34 +249,38 @@ class CEOExtractionService {
       throw new Error('Aucun CEO trouvé avec ces critères');
     }
 
-    // Headers du CSV
+    // Headers du CSV (format Apollo)
     const headers = [
       'Prénom', 'Nom', 'Titre', 'Entreprise', 'Site Web', 'Secteur',
       'Employés', 'Revenus', 'Ville', 'Pays',
-      'Email Apollo', 'Téléphone Apollo', 
-      'Email Kaspr', 'Téléphone Kaspr',
-      'LinkedIn'
+      'Email Principal', 'Statut Email', 'Email Secondaire', 'Email Tertiaire',
+      'Téléphone Direct', 'Mobile', 'Téléphone Corporate',
+      'LinkedIn Personnel', 'LinkedIn Entreprise'
     ];
 
     // Générer les lignes CSV
     const csvLines = [
       headers.join(','),
       ...ceos.map(ceo => [
-        this.escapeCSV(ceo.first_name),
-        this.escapeCSV(ceo.last_name),
-        this.escapeCSV(ceo.title),
-        this.escapeCSV(ceo.company_name),
-        this.escapeCSV(ceo.company_website),
-        this.escapeCSV(ceo.industry),
-        ceo.employee_count || '',
-        ceo.revenue || '',
-        this.escapeCSV(ceo.city),
-        this.escapeCSV(ceo.country),
-        this.escapeCSV(ceo.email_apollo),
-        this.escapeCSV(ceo.phone_apollo),
-        this.escapeCSV(ceo.email_kaspr),
-        this.escapeCSV(ceo.phone_kaspr),
-        this.escapeCSV(ceo.linkedin_url)
+        this.escapeCSV(ceo['First Name']),
+        this.escapeCSV(ceo['Last Name']),
+        this.escapeCSV(ceo.Title),
+        this.escapeCSV(ceo['Company Name']),
+        this.escapeCSV(ceo.Website),
+        this.escapeCSV(ceo.Industry),
+        ceo['# Employees'] || '',
+        ceo['Annual Revenue'] || '',
+        this.escapeCSV(ceo.City),
+        this.escapeCSV(ceo.Country),
+        this.escapeCSV(ceo.Email),
+        this.escapeCSV(ceo['Email Status']),
+        this.escapeCSV(ceo['Secondary Email']),
+        this.escapeCSV(ceo['Tertiary Email']),
+        this.escapeCSV(ceo['Work Direct Phone']),
+        this.escapeCSV(ceo['Mobile Phone']),
+        this.escapeCSV(ceo['Corporate Phone']),
+        this.escapeCSV(ceo['Person Linkedin Url']),
+        this.escapeCSV(ceo['Company Linkedin Url'])
       ].join(','))
     ];
 
@@ -251,7 +292,7 @@ class CEOExtractionService {
    */
   downloadCSV(csvContent, filename = 'ceos_filtered.csv') {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    
+
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = filename;
@@ -280,7 +321,7 @@ class CEOExtractionService {
     // 1. Télécharger et filtrer les CEO
     const allCEOs = await this.downloadCountryCSV(country);
     const filteredCEOs = this.filterCEOs(allCEOs, filters);
-    
+
     if (filteredCEOs.length === 0) {
       throw new Error('Aucun CEO trouvé avec ces critères');
     }
