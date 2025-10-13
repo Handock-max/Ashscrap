@@ -24,6 +24,9 @@ export const ExtractionForm = () => {
   const [employeeCount, setEmployeeCount] = useState("");
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
   
+  // Industries disponibles pour le pays sélectionné
+  const [availableIndustries, setAvailableIndustries] = useState<{industry: string, count: number}[]>([]);
+  
   // Champs optionnels
   const [keywords, setKeywords] = useState<string[]>([]);
   const [retailLocations, setRetailLocations] = useState("");
@@ -33,13 +36,16 @@ export const ExtractionForm = () => {
   const [availableJobTitles, setAvailableJobTitles] = useState<JobTitle[]>([]);
   const [ceoService] = useState(() => new CEOExtractionService(supabase));
 
-  // Charger les postes disponibles quand le pays change
+  // Charger les postes ET industries disponibles quand le pays change
   useEffect(() => {
     if (country) {
       loadJobTitlesForCountry(country);
+      loadIndustriesForCountry(country);
     } else {
       setAvailableJobTitles([]);
+      setAvailableIndustries([]);
       setSelectedJobTitle("");
+      setSelectedIndustries([]);
     }
   }, [country]);
 
@@ -72,6 +78,35 @@ export const ExtractionForm = () => {
       setAvailableJobTitles([]);
     } finally {
       setLoadingTitles(false);
+    }
+  };
+
+  const loadIndustriesForCountry = async (countryValue: string) => {
+    try {
+      // Récupérer les industries depuis la table industries_by_country
+      const { data, error } = await supabase.rpc('get_industries_for_country', {
+        country_input: countryValue
+      });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        console.warn('Aucune industrie trouvée pour ce pays');
+        setAvailableIndustries([]);
+        return;
+      }
+
+      // Convertir le format JSONB en array
+      const industries = data.map((item: any) => ({
+        industry: item.industry,
+        count: item.count
+      }));
+
+      setAvailableIndustries(industries);
+      
+    } catch (error: any) {
+      console.error('Erreur lors du chargement des industries:', error);
+      setAvailableIndustries([]);
     }
   };
 
@@ -214,10 +249,13 @@ export const ExtractionForm = () => {
                 {selectedIndustries.length > 0 && (
                   <div className="flex flex-wrap gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
                     {selectedIndustries.map((industryValue) => {
-                      const industry = apolloIndustries.find(ind => ind.value === industryValue);
+                      const industry = availableIndustries.find(ind => ind.industry === industryValue);
                       return (
                         <div key={industryValue} className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-md text-sm border border-blue-300 dark:border-blue-700">
-                          <span>{industry?.label}</span>
+                          <span>{industryValue}</span>
+                          {industry && (
+                            <span className="text-xs opacity-75">({industry.count})</span>
+                          )}
                           <X 
                             className="h-3 w-3 cursor-pointer text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" 
                             onClick={() => removeIndustry(industryValue)}
@@ -244,13 +282,18 @@ export const ExtractionForm = () => {
                     } />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
-                    {apolloIndustries
-                      .filter(ind => !selectedIndustries.includes(ind.value))
+                    {availableIndustries
+                      .filter(ind => !selectedIndustries.includes(ind.industry))
                       .map((ind) => (
-                        <SelectItem key={ind.value} value={ind.value}>
-                          <div className="flex items-center gap-2">
-                            <Plus className="h-3 w-3" />
-                            {ind.label}
+                        <SelectItem key={ind.industry} value={ind.industry}>
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-2">
+                              <Plus className="h-3 w-3" />
+                              <span>{ind.industry}</span>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {ind.count} profils
+                            </span>
                           </div>
                         </SelectItem>
                       ))}
@@ -258,7 +301,10 @@ export const ExtractionForm = () => {
                 </Select>
                 
                 <p className="text-xs text-muted-foreground">
-                  Secteurs d'activité Apollo - Sélectionnez jusqu'à 5 secteurs pour élargir votre recherche
+                  {availableIndustries.length > 0 
+                    ? `${availableIndustries.length} industries disponibles pour ce pays - Sélectionnez jusqu'à 5 secteurs`
+                    : "Sélectionnez d'abord un pays pour voir les industries disponibles"
+                  }
                 </p>
               </div>
             </div>

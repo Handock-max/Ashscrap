@@ -85,26 +85,34 @@ export const CountryManager = () => {
       // Convertir en texte
       const csvText = await csvBlob.text();
       
-      // Parser le CSV pour extraire les postes
-      const jobTitles = parseCSVForJobTitles(csvText);
+      // Parser le CSV pour extraire les postes ET les industries
+      const { jobTitles, industries, totalProfiles } = parseCSVForData(csvText);
       
-      if (jobTitles.length === 0) {
-        throw new Error('Aucun poste trouvé dans le fichier CSV');
+      if (jobTitles.length === 0 && industries.length === 0) {
+        throw new Error('Aucune donnée trouvée dans le fichier CSV');
       }
 
-      // Calculer le total des profils
-      const totalProfiles = jobTitles.reduce((sum, job) => sum + job.count, 0);
+      // Sauvegarder les postes dans la base de données
+      if (jobTitles.length > 0) {
+        const { error: jobError } = await supabase.rpc('process_country_job_titles', {
+          country_input: countryName.toLowerCase(),
+          job_titles_json: jobTitles,
+          total_profiles_count: totalProfiles
+        });
+        if (jobError) throw jobError;
+      }
 
-      // Sauvegarder dans la base de données
-      const { error: saveError } = await supabase.rpc('process_country_job_titles', {
-        country_input: countryName.toLowerCase(),
-        job_titles_json: jobTitles,
-        total_profiles_count: totalProfiles
-      });
+      // Sauvegarder les industries dans la base de données
+      if (industries.length > 0) {
+        const { error: industryError } = await supabase.rpc('process_country_industries', {
+          country_input: countryName.toLowerCase(),
+          industries_json: industries,
+          total_profiles_count: totalProfiles
+        });
+        if (industryError) throw industryError;
+      }
 
-      if (saveError) throw saveError;
-
-      toast.success(`${countryName} traité avec succès: ${jobTitles.length} postes uniques, ${totalProfiles} profils`);
+      toast.success(`${countryName} traité avec succès: ${jobTitles.length} postes, ${industries.length} industries, ${totalProfiles} profils`);
       
       // Recharger les données
       await loadCountries();
@@ -117,32 +125,51 @@ export const CountryManager = () => {
     }
   };
 
-  const parseCSVForJobTitles = (csvText: string) => {
+  const parseCSVForData = (csvText: string) => {
     const lines = csvText.trim().split('\n');
-    if (lines.length < 2) return [];
+    if (lines.length < 2) return { jobTitles: [], industries: [], totalProfiles: 0 };
 
-    // Trouver l'index de la colonne Title
+    // Trouver les index des colonnes Title et Industry
     const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
     const titleIndex = headers.findIndex(h => h.toLowerCase().includes('title'));
+    const industryIndex = headers.findIndex(h => h.toLowerCase().includes('industry'));
     
-    if (titleIndex === -1) return [];
-
-    // Compter les occurrences de chaque titre
+    // Compter les occurrences
     const titleCounts = new Map<string, number>();
+    const industryCounts = new Map<string, number>();
+    let totalProfiles = 0;
     
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-      const title = values[titleIndex];
+      totalProfiles++;
       
-      if (title && title.length > 0) {
-        titleCounts.set(title, (titleCounts.get(title) || 0) + 1);
+      // Traiter les titres
+      if (titleIndex !== -1) {
+        const title = values[titleIndex];
+        if (title && title.length > 0) {
+          titleCounts.set(title, (titleCounts.get(title) || 0) + 1);
+        }
+      }
+      
+      // Traiter les industries
+      if (industryIndex !== -1) {
+        const industry = values[industryIndex];
+        if (industry && industry.length > 0) {
+          industryCounts.set(industry, (industryCounts.get(industry) || 0) + 1);
+        }
       }
     }
 
     // Convertir en format attendu et trier par count décroissant
-    return Array.from(titleCounts.entries())
+    const jobTitles = Array.from(titleCounts.entries())
       .map(([title, count]) => ({ title, count }))
       .sort((a, b) => b.count - a.count);
+
+    const industries = Array.from(industryCounts.entries())
+      .map(([industry, count]) => ({ industry, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return { jobTitles, industries, totalProfiles };
   };
 
   const deleteCountry = async (countryCode: string) => {
