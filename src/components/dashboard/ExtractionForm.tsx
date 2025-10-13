@@ -46,30 +46,29 @@ export const ExtractionForm = () => {
   const loadJobTitlesForCountry = async (countryValue: string) => {
     setLoadingTitles(true);
     try {
-      // Télécharger le CSV du pays
-      const ceos = await ceoService.downloadCountryCSV(countryValue);
-      
-      // Extraire tous les titres uniques avec leur nombre
-      const titleCounts = new Map<string, number>();
-      
-      ceos.forEach(ceo => {
-        const title = ceo.Title?.trim();
-        if (title) {
-          titleCounts.set(title, (titleCounts.get(title) || 0) + 1);
-        }
+      // Récupérer les postes depuis la table job_titles_by_country
+      const { data, error } = await supabase.rpc('get_job_titles_for_country', {
+        country_input: countryValue
       });
 
-      // Convertir en array et trier par nombre décroissant
-      const jobTitles: JobTitle[] = Array.from(titleCounts.entries())
-        .map(([title, count]) => ({ title, count }))
-        .sort((a, b) => b.count - a.count);
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        throw new Error('Aucun poste trouvé pour ce pays. Le pays n\'a peut-être pas encore été traité par un administrateur.');
+      }
+
+      // Convertir le format JSONB en JobTitle[]
+      const jobTitles: JobTitle[] = data.map((item: any) => ({
+        title: item.title,
+        count: item.count
+      }));
 
       setAvailableJobTitles(jobTitles);
       
       toast.success(`${jobTitles.length} postes uniques trouvés pour ${countries.find(c => c.value === countryValue)?.label}`);
     } catch (error: any) {
       console.error('Erreur lors du chargement des postes:', error);
-      toast.error(`Impossible de charger les données pour ce pays: ${error.message}`);
+      toast.error(`Impossible de charger les postes pour ce pays: ${error.message}`);
       setAvailableJobTitles([]);
     } finally {
       setLoadingTitles(false);

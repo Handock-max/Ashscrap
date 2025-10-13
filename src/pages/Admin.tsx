@@ -5,7 +5,8 @@ import { PageLayout } from "@/components/layout/AppLayout";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { BrandingSettings } from "@/components/admin/BrandingSettings";
 import { WebhookTest } from "@/components/admin/WebhookTest";
-import { Loader2, LogOut, Users, Settings, Shield, Download, CheckCircle } from "lucide-react";
+import { CountryManager } from "@/components/admin/CountryManager";
+import { Loader2, LogOut, Users, Settings, Shield, Download, CheckCircle, Globe } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -196,8 +197,12 @@ const Admin = () => {
         </div>
 
         {/* Contenu principal */}
-        <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-lg">
+        <Tabs defaultValue="countries" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+            <TabsTrigger value="countries" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Pays
+            </TabsTrigger>
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               Utilisateurs
@@ -211,6 +216,10 @@ const Admin = () => {
               Webhooks
             </TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="countries" className="space-y-4">
+            <CountryManager />
+          </TabsContent>
           
           <TabsContent value="users" className="space-y-4">
             <UserManagement />
