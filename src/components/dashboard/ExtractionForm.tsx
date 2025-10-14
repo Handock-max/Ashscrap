@@ -2,21 +2,19 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Rocket, Users, Building2, X, Plus } from "lucide-react";
+import { Loader2, Rocket, Users, Building2, X, Plus, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { countries } from "@/data/countries";
 import { apolloIndustries } from "@/data/apollo-industries";
 import { KeywordsInput } from "./KeywordsInput";
-import { CEOExtractionService, type JobTitle } from "@/services/ceo-extraction";
+import { CEOExtractionService, type CEO } from "@/services/ceo-extraction";
 
 export const ExtractionForm = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingTitles, setLoadingTitles] = useState(false);
+  const [loadingData, setLoadingData] = useState(false);
 
   // Champs obligatoires
   const [country, setCountry] = useState("");
@@ -24,105 +22,81 @@ export const ExtractionForm = () => {
   const [employeeCount, setEmployeeCount] = useState("");
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
 
-  // Industries disponibles pour le pays sélectionné
-  const [availableIndustries, setAvailableIndustries] = useState<{ industry: string, count: number }[]>([]);
-
   // Champs optionnels
   const [keywords, setKeywords] = useState<string[]>([]);
   const [retailLocations, setRetailLocations] = useState("");
   const [selectedJobTitles, setSelectedJobTitles] = useState<string[]>([]);
 
-  // Données dynamiques
-  const [availableJobTitles, setAvailableJobTitles] = useState<JobTitle[]>([]);
-  const [allCEOsData, setAllCEOsData] = useState<any[]>([]); // Stocker toutes les données CEO
+  // Données dynamiques chargées depuis le CSV
+  const [availableIndustries, setAvailableIndustries] = useState<{ industry: string, count: number }[]>([]);
+  const [availableJobTitles, setAvailableJobTitles] = useState<{ title: string, count: number }[]>([]);
+  const [allCEOs, setAllCEOs] = useState<CEO[]>([]);
   const [ceoService] = useState(() => new CEOExtractionService(supabase));
 
-  // Charger les postes ET industries disponibles quand le pays change
+  // Charger les données CSV quand le pays change
   useEffect(() => {
     if (country) {
-      loadJobTitlesForCountry(country);
-      loadIndustriesForCountry(country);
+      loadCountryData(country);
     } else {
-      setAvailableJobTitles([]);
-      setAvailableIndustries([]);
-      setSelectedJobTitles([]);
-      setSelectedIndustries([]);
+      resetCountryData();
     }
   }, [country]);
 
-  // Nettoyer les postes sélectionnés quand les industries changent
-  useEffect(() => {
-    if (selectedIndustries.length > 0 && allCEOsData.length > 0) {
-      const filteredJobTitles = getFilteredJobTitles();
-      const validJobTitles = filteredJobTitles.map(job => job.title);
-      
-      // Retirer les postes qui ne correspondent plus aux industries sélectionnées
-      setSelectedJobTitles(prev => 
-        prev.filter(jobTitle => validJobTitles.includes(jobTitle))
-      );
-    }
-  }, [selectedIndustries, allCEOsData]);
-
-  const loadJobTitlesForCountry = async (countryValue: string) => {
-    setLoadingTitles(true);
+  const loadCountryData = async (countryValue: string) => {
+    setLoadingData(true);
     try {
-      // Charger toutes les données CEO du pays pour pouvoir filtrer par industrie
-      const allCEOs = await ceoService.downloadCountryCSV(countryValue);
-      setAllCEOsData(allCEOs);
+      // Charger le CSV complet du pays
+      const ceos = await ceoService.downloadCountryCSV(countryValue);
+      setAllCEOs(ceos);
 
-      // Extraire tous les postes uniques
-      const titleCounts = new Map<string, number>();
-      allCEOs.forEach(ceo => {
-        const title = ceo.Title?.trim();
-        if (title) {
-          titleCounts.set(title, (titleCounts.get(title) || 0) + 1);
+      // Extraire les industries uniques avec leur nombre d'occurrences
+      const industryMap = new Map<string, number>();
+      ceos.forEach(ceo => {
+        const industry = ceo.Industry?.trim();
+        if (industry) {
+          industryMap.set(industry, (industryMap.get(industry) || 0) + 1);
         }
       });
 
-      const jobTitles: JobTitle[] = Array.from(titleCounts.entries())
+      const industries = Array.from(industryMap.entries())
+        .map(([industry, count]) => ({ industry, count }))
+        .sort((a, b) => b.count - a.count);
+
+      setAvailableIndustries(industries);
+
+      // Extraire les postes uniques avec leur nombre d'occurrences
+      const jobTitleMap = new Map<string, number>();
+      ceos.forEach(ceo => {
+        const title = ceo.Title?.trim();
+        if (title) {
+          jobTitleMap.set(title, (jobTitleMap.get(title) || 0) + 1);
+        }
+      });
+
+      const jobTitles = Array.from(jobTitleMap.entries())
         .map(([title, count]) => ({ title, count }))
         .sort((a, b) => b.count - a.count);
 
       setAvailableJobTitles(jobTitles);
 
-      toast.success(`${jobTitles.length} postes uniques trouvés pour ${countries.find(c => c.value === countryValue)?.label}`);
+      const countryLabel = countries.find(c => c.value === countryValue)?.label || countryValue;
+      toast.success(`Données chargées pour ${countryLabel}: ${ceos.length} profils, ${industries.length} industries, ${jobTitles.length} postes`);
+
     } catch (error: any) {
-      console.error('Erreur lors du chargement des postes:', error);
-      toast.error(`Impossible de charger les postes pour ce pays: ${error.message}`);
-      setAvailableJobTitles([]);
-      setAllCEOsData([]);
+      console.error('Erreur lors du chargement des données:', error);
+      toast.error(`Impossible de charger les données pour ce pays: ${error.message}`);
+      resetCountryData();
     } finally {
-      setLoadingTitles(false);
+      setLoadingData(false);
     }
   };
 
-  const loadIndustriesForCountry = async (countryValue: string) => {
-    try {
-      // Récupérer les industries depuis la table industries_by_country
-      const { data, error } = await supabase.rpc('get_industries_for_country', {
-        country_input: countryValue
-      });
-
-      if (error) throw error;
-
-      if (!data || data.length === 0) {
-        console.warn('Aucune industrie trouvée pour ce pays');
-        setAvailableIndustries([]);
-        return;
-      }
-
-      // Convertir le format JSONB en array
-      const industries = data.map((item: any) => ({
-        industry: item.industry,
-        count: item.count
-      }));
-
-      setAvailableIndustries(industries);
-
-    } catch (error: any) {
-      console.error('Erreur lors du chargement des industries:', error);
-      setAvailableIndustries([]);
-    }
+  const resetCountryData = () => {
+    setAllCEOs([]);
+    setAvailableIndustries([]);
+    setAvailableJobTitles([]);
+    setSelectedIndustries([]);
+    setSelectedJobTitles([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -142,6 +116,11 @@ export const ExtractionForm = () => {
       return;
     }
 
+    if (allCEOs.length === 0) {
+      toast.error("Les données du pays ne sont pas encore chargées");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -156,20 +135,22 @@ export const ExtractionForm = () => {
         jobTitles: selectedJobTitles
       };
 
-      // Lancer l'extraction complète
-      const result = await ceoService.performCompleteExtraction(country, filters);
+      // Filtrer les CEOs avec les données déjà chargées
+      const filteredCEOs = ceoService.filterCEOs(allCEOs, filters);
 
-      toast.success(`Extraction terminée ! ${result.totalResults} résultats trouvés`);
-
-      // Télécharger automatiquement le fichier
-      if (result.csvContent) {
-        const countryLabel = countries.find(c => c.value === country)?.label || country;
-        const filename = `ceos_${countryLabel}_${new Date().toISOString().split('T')[0]}.csv`;
-        ceoService.downloadCSV(result.csvContent, filename);
+      if (filteredCEOs.length === 0) {
+        toast.error("Aucun CEO trouvé avec ces critères");
+        return;
       }
 
-      // Reset form
-      resetForm();
+      // Générer et télécharger le CSV
+      const csvContent = ceoService.generateCSVContent(filteredCEOs);
+      const countryLabel = countries.find(c => c.value === country)?.label || country;
+      const filename = `ceos_${countryLabel}_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      ceoService.downloadCSV(csvContent, filename);
+
+      toast.success(`Extraction terminée ! ${filteredCEOs.length} résultats trouvés et téléchargés`);
 
     } catch (error: any) {
       console.error('Erreur extraction:', error);
@@ -186,7 +167,8 @@ export const ExtractionForm = () => {
     setKeywords([]);
     setRetailLocations("");
     setSelectedJobTitles([]);
-    setAvailableJobTitles([]);
+    setVerifiedEmailOnly(true);
+    resetCountryData();
   };
 
   const handleIndustrySelect = (industryValue: string) => {
@@ -223,31 +205,33 @@ export const ExtractionForm = () => {
 
   // Filtrer les postes selon les industries sélectionnées
   const getFilteredJobTitles = () => {
-    if (selectedIndustries.length === 0 || allCEOsData.length === 0) {
+    if (selectedIndustries.length === 0) {
       return availableJobTitles;
     }
 
     // Filtrer les CEOs par industries sélectionnées
-    const filteredCEOs = allCEOsData.filter(ceo => {
+    const filteredCEOs = allCEOs.filter(ceo => {
       const ceoIndustry = ceo.Industry?.toLowerCase() || '';
       return selectedIndustries.some(industry => 
         ceoIndustry.includes(industry.toLowerCase())
       );
     });
 
-    // Extraire les postes uniques des CEOs filtrés
-    const titleCounts = new Map<string, number>();
+    // Extraire les postes uniques de ces CEOs filtrés
+    const jobTitleMap = new Map<string, number>();
     filteredCEOs.forEach(ceo => {
       const title = ceo.Title?.trim();
       if (title) {
-        titleCounts.set(title, (titleCounts.get(title) || 0) + 1);
+        jobTitleMap.set(title, (jobTitleMap.get(title) || 0) + 1);
       }
     });
 
-    return Array.from(titleCounts.entries())
+    return Array.from(jobTitleMap.entries())
       .map(([title, count]) => ({ title, count }))
       .sort((a, b) => b.count - a.count);
   };
+
+
 
   return (
     <Card className="shadow-glow border-primary/10">
@@ -278,10 +262,10 @@ export const ExtractionForm = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                {loadingTitles && country && (
+                {loadingData && country && (
                   <p className="text-xs text-blue-600 flex items-center gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    Chargement des postes disponibles...
+                    Chargement des données du pays...
                   </p>
                 )}
               </div>
@@ -413,8 +397,7 @@ export const ExtractionForm = () => {
                 {selectedJobTitles.length > 0 && (
                   <div className="flex flex-wrap gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
                     {selectedJobTitles.map((jobTitle) => {
-                      const filteredJobTitles = getFilteredJobTitles();
-                      const job = filteredJobTitles.find(j => j.title === jobTitle);
+                      const job = availableJobTitles.find(j => j.title === jobTitle);
                       return (
                         <div key={jobTitle} className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-md text-sm border border-blue-300 dark:border-blue-700">
                           <span>{jobTitle}</span>
@@ -485,27 +468,40 @@ export const ExtractionForm = () => {
             />
           </div>
 
-          <Button
-            type="submit"
-            className="w-full gradient-primary text-white hover:opacity-90 transition-opacity shadow-md"
-            size="lg"
-            disabled={isLoading || !country || !employeeCount || selectedIndustries.length === 0}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Extraction en cours...
-              </>
-            ) : (
-              <>
-                <Rocket className="mr-2 h-5 w-5" />
-                Lancer l'extraction
-              </>
-            )}
-          </Button>
+          <div className="flex gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={resetForm}
+              disabled={isLoading || loadingData}
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Réinitialiser
+            </Button>
+            
+            <Button
+              type="submit"
+              className="flex-1 gradient-primary text-white hover:opacity-90 transition-opacity shadow-md"
+              size="lg"
+              disabled={isLoading || loadingData || !country || !employeeCount || selectedIndustries.length === 0 || allCEOs.length === 0}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Extraction en cours...
+                </>
+              ) : (
+                <>
+                  <Rocket className="mr-2 h-5 w-5" />
+                  Lancer l'extraction
+                </>
+              )}
+            </Button>
+          </div>
 
           {/* Informations sur les résultats attendus */}
-          {country && availableJobTitles.length > 0 && (
+          {country && allCEOs.length > 0 && (
             <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <div className="flex items-center gap-2 text-blue-800 mb-2">
                 <Building2 className="h-4 w-4" />
@@ -513,7 +509,8 @@ export const ExtractionForm = () => {
               </div>
               <div className="text-sm text-blue-700 space-y-1">
                 <p>
-                  {availableJobTitles.reduce((sum, job) => sum + job.count, 0)} profils au total • 
+                  {allCEOs.length} profils au total • 
+                  {availableIndustries.length} industries • 
                   {availableJobTitles.length} postes différents
                 </p>
                 {selectedIndustries.length > 0 && (
