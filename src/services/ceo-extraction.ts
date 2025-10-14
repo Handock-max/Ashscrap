@@ -48,8 +48,19 @@ export class CEOExtractionService {
    */
   async downloadCountryCSV(countryName: string): Promise<CEO[]> {
     try {
-      // Capitaliser la première lettre pour correspondre au nom du fichier
-      const fileName = countryName.charAt(0).toUpperCase() + countryName.slice(1).toLowerCase();
+      // Gérer les cas spéciaux de nommage des fichiers
+      let fileName;
+      switch (countryName.toLowerCase()) {
+        case 'usa':
+          fileName = 'USA';
+          break;
+        case 'uk':
+          fileName = 'UK';
+          break;
+        default:
+          // Capitaliser la première lettre pour les autres pays
+          fileName = countryName.charAt(0).toUpperCase() + countryName.slice(1).toLowerCase();
+      }
       
       console.log(`Tentative de téléchargement: ${fileName}.csv`);
       
