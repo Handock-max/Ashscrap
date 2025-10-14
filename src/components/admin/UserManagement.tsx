@@ -31,32 +31,44 @@ export const UserManagement = () => {
     try {
       setIsLoading(true);
       
-      // Utiliser une jointure pour récupérer les profils et rôles en une seule requête
-      const { data: usersData, error } = await supabase
+      // Récupérer les profils d'abord
+      const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select(`
-          *,
-          user_roles (
-            role
-          )
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
+
+      if (profilesError) {
+        console.error('Error loading profiles:', profilesError);
+        throw profilesError;
+      }
+
+      if (!profiles) {
+        setUsers([]);
+        return;
+      }
+
+      // Puis récupérer les rôles séparément pour éviter les problèmes de relation
+      const usersWithRoles = await Promise.all(
+        profiles.map(async (profile) => {
+          const { data: roleData } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", profile.id)
+            .single();
+
+          return {
+            ...profile,
+            role: roleData?.role || "user",
+          };
+        })
+      );
 
       if (error) {
         console.error('Error loading users:', error);
         throw error;
       }
 
-      if (!usersData) {
-        setUsers([]);
-        return;
-      }
 
-      // Transformer les données pour avoir le bon format
-      const usersWithRoles = usersData.map(profile => ({
-        ...profile,
-        role: profile.user_roles?.[0]?.role || "user"
-      }));
 
       setUsers(usersWithRoles);
       console.log(`Loaded ${usersWithRoles.length} users`);

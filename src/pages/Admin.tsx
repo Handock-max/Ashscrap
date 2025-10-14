@@ -52,35 +52,14 @@ const Admin = () => {
   };
 
   useEffect(() => {
-    const checkAdminAccess = async () => {
-      // Utiliser le hook useTokenAuth pour vérifier les permissions
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        navigate("/auth");
-        return;
-      }
-
-      // Vérification simple du rôle admin depuis le token/session
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("role", "admin")
-        .single();
-
-      if (!roles) {
-        toast.error("Accès refusé : vous n'êtes pas administrateur");
-        navigate("/");
-        return;
-      }
-
+    // Plus de vérification redondante, on fait confiance au routing dans App.tsx
+    const initAdmin = async () => {
       setIsAdmin(true);
       await fetchAdminStats();
       setIsLoading(false);
     };
 
-    checkAdminAccess();
+    initAdmin();
 
     // Subscribe to realtime updates for admin stats
     const usersChannel = supabase
