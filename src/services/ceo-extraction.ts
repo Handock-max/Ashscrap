@@ -12,7 +12,7 @@ export interface ExtractionFilters {
   verifiedEmailOnly?: boolean;
   keywords?: string[];
   retailLocations?: string;
-  jobTitle?: string;
+  jobTitles?: string[];
 }
 
 export interface CEO {
@@ -206,10 +206,16 @@ export class CEOExtractionService {
         }
       }
 
-      // Filtre par poste spécifique (optionnel)
-      if (filters.jobTitle && filters.jobTitle !== 'all') {
+      // Filtre par postes spécifiques (optionnel)
+      if (filters.jobTitles && filters.jobTitles.length > 0) {
         const title = ceo.Title?.toLowerCase() || '';
-        if (!title.includes(filters.jobTitle.toLowerCase())) {
+        
+        // Vérifier si le titre du CEO correspond à au moins un des postes sélectionnés
+        const matchesJobTitle = filters.jobTitles.some(filterTitle => 
+          title.includes(filterTitle.toLowerCase())
+        );
+        
+        if (!matchesJobTitle) {
           return false;
         }
       }

@@ -17,23 +17,24 @@ import { CEOExtractionService, type JobTitle } from "@/services/ceo-extraction";
 export const ExtractionForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingTitles, setLoadingTitles] = useState(false);
-  
+
   // Champs obligatoires
   const [country, setCountry] = useState("");
   const [verifiedEmailOnly, setVerifiedEmailOnly] = useState(true);
   const [employeeCount, setEmployeeCount] = useState("");
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
-  
+
   // Industries disponibles pour le pays sélectionné
-  const [availableIndustries, setAvailableIndustries] = useState<{industry: string, count: number}[]>([]);
-  
+  const [availableIndustries, setAvailableIndustries] = useState<{ industry: string, count: number }[]>([]);
+
   // Champs optionnels
   const [keywords, setKeywords] = useState<string[]>([]);
   const [retailLocations, setRetailLocations] = useState("");
-  const [selectedJobTitle, setSelectedJobTitle] = useState("");
-  
+  const [selectedJobTitles, setSelectedJobTitles] = useState<string[]>([]);
+
   // Données dynamiques
   const [availableJobTitles, setAvailableJobTitles] = useState<JobTitle[]>([]);
+  const [allCEOsData, setAllCEOsData] = useState<any[]>([]); // Stocker toutes les données CEO
   const [ceoService] = useState(() => new CEOExtractionService(supabase));
 
   // Charger les postes ET industries disponibles quand le pays change
@@ -44,38 +45,52 @@ export const ExtractionForm = () => {
     } else {
       setAvailableJobTitles([]);
       setAvailableIndustries([]);
-      setSelectedJobTitle("");
+      setSelectedJobTitles([]);
       setSelectedIndustries([]);
     }
   }, [country]);
 
+  // Nettoyer les postes sélectionnés quand les industries changent
+  useEffect(() => {
+    if (selectedIndustries.length > 0 && allCEOsData.length > 0) {
+      const filteredJobTitles = getFilteredJobTitles();
+      const validJobTitles = filteredJobTitles.map(job => job.title);
+      
+      // Retirer les postes qui ne correspondent plus aux industries sélectionnées
+      setSelectedJobTitles(prev => 
+        prev.filter(jobTitle => validJobTitles.includes(jobTitle))
+      );
+    }
+  }, [selectedIndustries, allCEOsData]);
+
   const loadJobTitlesForCountry = async (countryValue: string) => {
     setLoadingTitles(true);
     try {
-      // Récupérer les postes depuis la table job_titles_by_country
-      const { data, error } = await supabase.rpc('get_job_titles_for_country', {
-        country_input: countryValue
+      // Charger toutes les données CEO du pays pour pouvoir filtrer par industrie
+      const allCEOs = await ceoService.downloadCountryCSV(countryValue);
+      setAllCEOsData(allCEOs);
+
+      // Extraire tous les postes uniques
+      const titleCounts = new Map<string, number>();
+      allCEOs.forEach(ceo => {
+        const title = ceo.Title?.trim();
+        if (title) {
+          titleCounts.set(title, (titleCounts.get(title) || 0) + 1);
+        }
       });
 
-      if (error) throw error;
-
-      if (!data || data.length === 0) {
-        throw new Error('Aucun poste trouvé pour ce pays. Le pays n\'a peut-être pas encore été traité par un administrateur.');
-      }
-
-      // Convertir le format JSONB en JobTitle[]
-      const jobTitles: JobTitle[] = data.map((item: any) => ({
-        title: item.title,
-        count: item.count
-      }));
+      const jobTitles: JobTitle[] = Array.from(titleCounts.entries())
+        .map(([title, count]) => ({ title, count }))
+        .sort((a, b) => b.count - a.count);
 
       setAvailableJobTitles(jobTitles);
-      
+
       toast.success(`${jobTitles.length} postes uniques trouvés pour ${countries.find(c => c.value === countryValue)?.label}`);
     } catch (error: any) {
       console.error('Erreur lors du chargement des postes:', error);
       toast.error(`Impossible de charger les postes pour ce pays: ${error.message}`);
       setAvailableJobTitles([]);
+      setAllCEOsData([]);
     } finally {
       setLoadingTitles(false);
     }
@@ -103,7 +118,7 @@ export const ExtractionForm = () => {
       }));
 
       setAvailableIndustries(industries);
-      
+
     } catch (error: any) {
       console.error('Erreur lors du chargement des industries:', error);
       setAvailableIndustries([]);
@@ -138,7 +153,7 @@ export const ExtractionForm = () => {
         verifiedEmailOnly: verifiedEmailOnly,
         keywords: keywords,
         retailLocations: retailLocations,
-        jobTitle: selectedJobTitle
+        jobTitles: selectedJobTitles
       };
 
       // Lancer l'extraction complète
@@ -155,7 +170,7 @@ export const ExtractionForm = () => {
 
       // Reset form
       resetForm();
-      
+
     } catch (error: any) {
       console.error('Erreur extraction:', error);
       toast.error(error.message || "Une erreur est survenue lors de l'extraction");
@@ -170,7 +185,7 @@ export const ExtractionForm = () => {
     setSelectedIndustries([]);
     setKeywords([]);
     setRetailLocations("");
-    setSelectedJobTitle("");
+    setSelectedJobTitles([]);
     setAvailableJobTitles([]);
   };
 
@@ -190,6 +205,50 @@ export const ExtractionForm = () => {
     setSelectedIndustries(prev => prev.filter(ind => ind !== industryValue));
   };
 
+  const handleJobTitleSelect = (jobTitle: string) => {
+    if (selectedJobTitles.includes(jobTitle)) {
+      // Retirer le poste si déjà sélectionné
+      setSelectedJobTitles(prev => prev.filter(job => job !== jobTitle));
+    } else if (selectedJobTitles.length < 5) {
+      // Ajouter le poste si moins de 5 sélectionnés
+      setSelectedJobTitles(prev => [...prev, jobTitle]);
+    } else {
+      toast.error("Vous pouvez sélectionner au maximum 5 postes");
+    }
+  };
+
+  const removeJobTitle = (jobTitle: string) => {
+    setSelectedJobTitles(prev => prev.filter(job => job !== jobTitle));
+  };
+
+  // Filtrer les postes selon les industries sélectionnées
+  const getFilteredJobTitles = () => {
+    if (selectedIndustries.length === 0 || allCEOsData.length === 0) {
+      return availableJobTitles;
+    }
+
+    // Filtrer les CEOs par industries sélectionnées
+    const filteredCEOs = allCEOsData.filter(ceo => {
+      const ceoIndustry = ceo.Industry?.toLowerCase() || '';
+      return selectedIndustries.some(industry => 
+        ceoIndustry.includes(industry.toLowerCase())
+      );
+    });
+
+    // Extraire les postes uniques des CEOs filtrés
+    const titleCounts = new Map<string, number>();
+    filteredCEOs.forEach(ceo => {
+      const title = ceo.Title?.trim();
+      if (title) {
+        titleCounts.set(title, (titleCounts.get(title) || 0) + 1);
+      }
+    });
+
+    return Array.from(titleCounts.entries())
+      .map(([title, count]) => ({ title, count }))
+      .sort((a, b) => b.count - a.count);
+  };
+
   return (
     <Card className="shadow-glow border-primary/10">
       <CardHeader>
@@ -203,7 +262,7 @@ export const ExtractionForm = () => {
           {/* Champs obligatoires */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-primary">Critères obligatoires</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="country">Pays *</Label>
@@ -244,7 +303,7 @@ export const ExtractionForm = () => {
 
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="industry">Secteurs d'activité * (max 5)</Label>
-                
+
                 {/* Industries sélectionnées */}
                 {selectedIndustries.length > 0 && (
                   <div className="flex flex-wrap gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
@@ -256,8 +315,8 @@ export const ExtractionForm = () => {
                           {industry && (
                             <span className="text-xs opacity-75">({industry.count})</span>
                           )}
-                          <X 
-                            className="h-3 w-3 cursor-pointer text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" 
+                          <X
+                            className="h-3 w-3 cursor-pointer text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                             onClick={() => removeIndustry(industryValue)}
                           />
                         </div>
@@ -267,18 +326,18 @@ export const ExtractionForm = () => {
                 )}
 
                 {/* Sélecteur d'industries */}
-                <Select 
-                  value="" 
-                  onValueChange={handleIndustrySelect} 
+                <Select
+                  value=""
+                  onValueChange={handleIndustrySelect}
                   disabled={isLoading || selectedIndustries.length >= 5}
                 >
                   <SelectTrigger id="industry">
                     <SelectValue placeholder={
-                      selectedIndustries.length >= 5 
-                        ? "Maximum 5 secteurs sélectionnés" 
+                      selectedIndustries.length >= 5
+                        ? "Maximum 5 secteurs sélectionnés"
                         : selectedIndustries.length === 0
-                        ? "Sélectionnez un secteur d'activité"
-                        : `Ajouter un secteur (${selectedIndustries.length}/5)`
+                          ? "Sélectionnez un secteur d'activité"
+                          : `Ajouter un secteur (${selectedIndustries.length}/5)`
                     } />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
@@ -299,9 +358,9 @@ export const ExtractionForm = () => {
                       ))}
                   </SelectContent>
                 </Select>
-                
+
                 <p className="text-xs text-muted-foreground">
-                  {availableIndustries.length > 0 
+                  {availableIndustries.length > 0
                     ? `${availableIndustries.length} industries disponibles pour ce pays - Sélectionnez jusqu'à 5 secteurs`
                     : "Sélectionnez d'abord un pays pour voir les industries disponibles"
                   }
@@ -325,7 +384,7 @@ export const ExtractionForm = () => {
           {/* Champs optionnels */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-primary">Filtres optionnels</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="retailLocations">Nombre de sites retail</Label>
@@ -348,39 +407,74 @@ export const ExtractionForm = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="jobTitle">Poste spécifique</Label>
-                <Select 
-                  value={selectedJobTitle} 
-                  onValueChange={setSelectedJobTitle} 
-                  disabled={isLoading || !country || availableJobTitles.length === 0}
+                <Label htmlFor="jobTitle">Postes spécifiques (max 5)</Label>
+
+                {/* Postes sélectionnés */}
+                {selectedJobTitles.length > 0 && (
+                  <div className="flex flex-wrap gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border border-blue-200 dark:border-blue-800">
+                    {selectedJobTitles.map((jobTitle) => {
+                      const filteredJobTitles = getFilteredJobTitles();
+                      const job = filteredJobTitles.find(j => j.title === jobTitle);
+                      return (
+                        <div key={jobTitle} className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-md text-sm border border-blue-300 dark:border-blue-700">
+                          <span>{jobTitle}</span>
+                          {job && (
+                            <span className="text-xs opacity-75">({job.count})</span>
+                          )}
+                          <X
+                            className="h-3 w-3 cursor-pointer text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            onClick={() => removeJobTitle(jobTitle)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Sélecteur de postes */}
+                <Select
+                  value=""
+                  onValueChange={handleJobTitleSelect}
+                  disabled={isLoading || !country || getFilteredJobTitles().length === 0 || selectedJobTitles.length >= 5}
                 >
                   <SelectTrigger id="jobTitle">
                     <SelectValue placeholder={
                       !country ? "Sélectionnez d'abord un pays" :
-                      availableJobTitles.length === 0 ? "Aucun poste disponible" :
-                      "Tous les postes"
+                        selectedIndustries.length === 0 ? "Sélectionnez d'abord des industries" :
+                          getFilteredJobTitles().length === 0 ? "Aucun poste pour ces industries" :
+                            selectedJobTitles.length >= 5 ? "Maximum 5 postes sélectionnés" :
+                              selectedJobTitles.length === 0 ? "Sélectionnez un poste" :
+                                `Ajouter un poste (${selectedJobTitles.length}/5)`
                     } />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
-                    <SelectItem value="all">Tous les postes</SelectItem>
-                    {availableJobTitles.map((job) => (
-                      <SelectItem key={job.title} value={job.title}>
-                        <div className="flex items-center justify-between w-full">
-                          <span className="truncate">{job.title}</span>
-                          <span className="ml-2 text-xs text-muted-foreground flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {job.count}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {getFilteredJobTitles()
+                      .filter(job => !selectedJobTitles.includes(job.title))
+                      .map((job) => (
+                        <SelectItem key={job.title} value={job.title}>
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-2">
+                              <Plus className="h-3 w-3" />
+                              <span className="truncate">{job.title}</span>
+                            </div>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {job.count}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
-                {availableJobTitles.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    {availableJobTitles.length} postes uniques disponibles dans ce pays
-                  </p>
-                )}
+
+                <p className="text-xs text-muted-foreground">
+                  {selectedIndustries.length === 0 
+                    ? "Sélectionnez d'abord des industries pour voir les postes correspondants"
+                    : getFilteredJobTitles().length > 0
+                    ? `${getFilteredJobTitles().length} postes disponibles pour les industries sélectionnées`
+                    : "Aucun poste trouvé pour ces industries"
+                  }
+                </p>
               </div>
             </div>
 
@@ -417,10 +511,18 @@ export const ExtractionForm = () => {
                 <Building2 className="h-4 w-4" />
                 <span className="font-medium">Données disponibles pour {countries.find(c => c.value === country)?.label}</span>
               </div>
-              <p className="text-sm text-blue-700">
-                {availableJobTitles.reduce((sum, job) => sum + job.count, 0)} profils au total • 
-                {availableJobTitles.length} postes différents
-              </p>
+              <div className="text-sm text-blue-700 space-y-1">
+                <p>
+                  {availableJobTitles.reduce((sum, job) => sum + job.count, 0)} profils au total • 
+                  {availableJobTitles.length} postes différents
+                </p>
+                {selectedIndustries.length > 0 && (
+                  <p>
+                    {getFilteredJobTitles().reduce((sum, job) => sum + job.count, 0)} profils pour les industries sélectionnées • 
+                    {getFilteredJobTitles().length} postes correspondants
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </form>
