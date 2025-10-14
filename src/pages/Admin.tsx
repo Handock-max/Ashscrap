@@ -53,24 +53,24 @@ const Admin = () => {
 
   useEffect(() => {
     const checkAdminAccess = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Utiliser le hook useTokenAuth pour vérifier les permissions
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (!session) {
+      if (!user) {
         navigate("/auth");
         return;
       }
 
-      // Check if user has admin role
-      const { data: roles, error: roleError } = await supabase
+      // Vérification simple du rôle admin depuis le token/session
+      const { data: roles } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", session.user.id)
+        .eq("user_id", user.id)
         .eq("role", "admin")
         .single();
 
-      if (roleError || !roles) {
-        console.error('Erreur vérification admin:', roleError);
-        toast.error(`Accès refusé : vous n'êtes pas administrateur. User ID: ${session.user.id}`);
+      if (!roles) {
+        toast.error("Accès refusé : vous n'êtes pas administrateur");
         navigate("/");
         return;
       }

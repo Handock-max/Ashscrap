@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Trash2, Key, Loader2 } from "lucide-react";
+import { UserPlus, Trash2, Key, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -29,12 +29,22 @@ export const UserManagement = () => {
 
   const loadUsers = async () => {
     try {
-      const { data: profiles } = await supabase
+      setIsLoading(true);
+      
+      const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (!profiles) return;
+      if (profilesError) {
+        console.error('Error loading profiles:', profilesError);
+        throw profilesError;
+      }
+
+      if (!profiles) {
+        setUsers([]);
+        return;
+      }
 
       const usersWithRoles = await Promise.all(
         profiles.map(async (profile) => {
@@ -52,8 +62,10 @@ export const UserManagement = () => {
       );
 
       setUsers(usersWithRoles);
+      console.log(`Loaded ${usersWithRoles.length} users`);
     } catch (error: any) {
-      toast.error("Erreur lors du chargement des utilisateurs");
+      console.error('Error loading users:', error);
+      toast.error("Erreur lors du chargement des utilisateurs: " + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -61,6 +73,44 @@ export const UserManagement = () => {
 
   useEffect(() => {
     loadUsers();
+
+    // Écouter les changements en temps réel sur les tables profiles et user_roles
+    const profilesChannel = supabase
+      .channel('profiles-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+        },
+        () => {
+          console.log('Profile change detected, reloading users...');
+          loadUsers();
+        }
+      )
+      .subscribe();
+
+    const rolesChannel = supabase
+      .channel('user-roles-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_roles',
+        },
+        () => {
+          console.log('Role change detected, reloading users...');
+          loadUsers();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(rolesChannel);
+    };
   }, []);
 
   const handleAddUser = async (e: React.FormEvent) => {
@@ -93,7 +143,11 @@ export const UserManagement = () => {
         setNewEmail("");
         setNewPassword("");
         setNewRole("user");
-        loadUsers();
+        
+        // Attendre un peu avant de recharger pour laisser le temps aux triggers de s'exécuter
+        setTimeout(() => {
+          loadUsers();
+        }, 1000);
       }
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de la création");
@@ -112,7 +166,11 @@ export const UserManagement = () => {
       if (error) throw error;
 
       toast.success("Utilisateur supprimé avec succès");
-      loadUsers();
+      
+      // Attendre un peu avant de recharger
+      setTimeout(() => {
+        loadUsers();
+      }, 500);
     } catch (error: any) {
       console.error("Erreur suppression:", error);
       toast.error("Erreur lors de la suppression: " + (error.message || "Erreur inconnue"));
@@ -202,10 +260,23 @@ export const UserManagement = () => {
 
       <Card className="shadow-glow border-primary/10">
         <CardHeader>
-          <CardTitle>Utilisateurs existants</CardTitle>
-          <CardDescription>
-            Liste de tous les utilisateurs de l'application
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Utilisateurs existants</CardTitle>
+              <CardDescription>
+                Liste de tous les utilisateurs de l'application ({users.length} utilisateurs)
+              </CardDescription>
+            </div>
+            <Button
+              onClick={loadUsers}
+              variant="outline"
+              size="sm"
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Actualiser
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>

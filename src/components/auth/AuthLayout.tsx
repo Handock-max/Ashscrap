@@ -14,7 +14,7 @@ export const AuthLayout = ({ children }: AuthLayoutProps) => {
       <div 
         className="hidden lg:flex lg:w-1/2 items-center justify-center p-12"
         style={{
-          background: 'linear-gradient(135deg, hsl(221, 83%, 53%), hsl(262, 83%, 58%))'
+          background: 'linear-gradient(135deg, hsl(262, 50%, 70%), hsl(280, 60%, 75%))'
         }}
       >
         <div className="text-center text-white" style={{ color: 'white' }}>

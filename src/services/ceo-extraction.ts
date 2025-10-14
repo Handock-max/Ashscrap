@@ -332,29 +332,45 @@ export class CEOExtractionService {
     const csvContent = this.generateCSVContent(filteredCEOs);
     const filename = `${user.user.id}/${extraction.id}.csv`;
 
-    const { error: uploadError } = await this.supabaseClient.storage
+    // Créer un Blob pour l'upload
+    const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+
+    const { data: uploadData, error: uploadError } = await this.supabaseClient.storage
       .from('download')
-      .upload(filename, csvContent, {
+      .upload(filename, csvBlob, {
         contentType: 'text/csv',
-        upsert: true
+        upsert: true,
+        cacheControl: '604800' // 7 jours en secondes
       });
 
     if (uploadError) {
       console.error('Erreur upload fichier:', uploadError);
-      // Ne pas faire échouer l'extraction si l'upload échoue
+      throw new Error(`Erreur lors de la sauvegarde du fichier: ${uploadError.message}`);
     }
 
+    console.log('Fichier uploadé avec succès:', uploadData);
+
     // 4. Générer URL signée (7 jours)
-    const { data: signedUrl } = await this.supabaseClient.storage
+    const { data: signedUrl, error: urlError } = await this.supabaseClient.storage
       .from('download')
       .createSignedUrl(filename, 604800); // 7 jours en secondes
 
+    if (urlError) {
+      console.error('Erreur génération URL signée:', urlError);
+      throw new Error(`Erreur lors de la génération du lien de téléchargement: ${urlError.message}`);
+    }
+
     // 5. Mettre à jour l'extraction avec l'URL du fichier
     if (signedUrl?.signedUrl) {
-      await this.supabaseClient
+      const { error: updateError } = await this.supabaseClient
         .from('extractions')
         .update({ file_url: signedUrl.signedUrl })
         .eq('id', extraction.id);
+
+      if (updateError) {
+        console.error('Erreur mise à jour extraction:', updateError);
+        // Ne pas faire échouer l'extraction pour cette erreur
+      }
     }
 
     return {
