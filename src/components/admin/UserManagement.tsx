@@ -31,41 +31,39 @@ export const UserManagement = () => {
     try {
       setIsLoading(true);
       
-      const { data: profiles, error: profilesError } = await supabase
+      // Utiliser une jointure pour récupérer les profils et rôles en une seule requête
+      const { data: usersData, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select(`
+          *,
+          user_roles (
+            role
+          )
+        `)
         .order("created_at", { ascending: false });
 
-      if (profilesError) {
-        console.error('Error loading profiles:', profilesError);
-        throw profilesError;
+      if (error) {
+        console.error('Error loading users:', error);
+        throw error;
       }
 
-      if (!profiles) {
+      if (!usersData) {
         setUsers([]);
         return;
       }
 
-      const usersWithRoles = await Promise.all(
-        profiles.map(async (profile) => {
-          const { data: roleData } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", profile.id)
-            .single();
-
-          return {
-            ...profile,
-            role: roleData?.role || "user",
-          };
-        })
-      );
+      // Transformer les données pour avoir le bon format
+      const usersWithRoles = usersData.map(profile => ({
+        ...profile,
+        role: profile.user_roles?.[0]?.role || "user"
+      }));
 
       setUsers(usersWithRoles);
       console.log(`Loaded ${usersWithRoles.length} users`);
     } catch (error: any) {
       console.error('Error loading users:', error);
       toast.error("Erreur lors du chargement des utilisateurs: " + error.message);
+      setUsers([]); // Reset en cas d'erreur
     } finally {
       setIsLoading(false);
     }
@@ -74,9 +72,9 @@ export const UserManagement = () => {
   useEffect(() => {
     loadUsers();
 
-    // Écouter les changements en temps réel sur les tables profiles et user_roles
+    // Écouter les changements en temps réel avec des canaux uniques
     const profilesChannel = supabase
-      .channel('profiles-changes')
+      .channel('admin-profiles-changes')
       .on(
         'postgres_changes',
         {
@@ -84,15 +82,18 @@ export const UserManagement = () => {
           schema: 'public',
           table: 'profiles',
         },
-        () => {
-          console.log('Profile change detected, reloading users...');
-          loadUsers();
+        (payload) => {
+          console.log('Profile change detected:', payload);
+          // Délai pour laisser le temps aux triggers de s'exécuter
+          setTimeout(() => {
+            loadUsers();
+          }, 500);
         }
       )
       .subscribe();
 
     const rolesChannel = supabase
-      .channel('user-roles-changes')
+      .channel('admin-user-roles-changes')
       .on(
         'postgres_changes',
         {
@@ -100,9 +101,11 @@ export const UserManagement = () => {
           schema: 'public',
           table: 'user_roles',
         },
-        () => {
-          console.log('Role change detected, reloading users...');
-          loadUsers();
+        (payload) => {
+          console.log('Role change detected:', payload);
+          setTimeout(() => {
+            loadUsers();
+          }, 500);
         }
       )
       .subscribe();
@@ -144,10 +147,11 @@ export const UserManagement = () => {
         setNewPassword("");
         setNewRole("user");
         
-        // Attendre un peu avant de recharger pour laisser le temps aux triggers de s'exécuter
+        // Recharger immédiatement puis après un délai pour être sûr
+        loadUsers();
         setTimeout(() => {
           loadUsers();
-        }, 1000);
+        }, 2000);
       }
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de la création");
@@ -167,10 +171,8 @@ export const UserManagement = () => {
 
       toast.success("Utilisateur supprimé avec succès");
       
-      // Attendre un peu avant de recharger
-      setTimeout(() => {
-        loadUsers();
-      }, 500);
+      // Recharger immédiatement
+      loadUsers();
     } catch (error: any) {
       console.error("Erreur suppression:", error);
       toast.error("Erreur lors de la suppression: " + (error.message || "Erreur inconnue"));
@@ -290,47 +292,55 @@ export const UserManagement = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.email}</TableCell>
-                  <TableCell>{user.full_name || "-"}</TableCell>
-                  <TableCell>
-                    <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                      {user.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(user.created_at).toLocaleDateString("fr-FR")}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Êtes-vous sûr de vouloir supprimer {user.email} ?
-                            Cette action est irréversible.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Annuler</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="bg-red-600 hover:bg-red-700"
-                          >
-                            Supprimer
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+              {users.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    {isLoading ? "Chargement des utilisateurs..." : "Aucun utilisateur trouvé"}
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.email}</TableCell>
+                    <TableCell>{user.full_name || "-"}</TableCell>
+                    <TableCell>
+                      <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                        <span>{user.role}</span>
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {new Date(user.created_at).toLocaleDateString("fr-FR")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Êtes-vous sûr de vouloir supprimer {user.email} ?
+                              Cette action est irréversible.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Annuler</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={() => handleDeleteUser(user.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Supprimer
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

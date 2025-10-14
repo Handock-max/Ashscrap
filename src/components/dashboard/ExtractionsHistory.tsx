@@ -85,7 +85,13 @@ export const ExtractionsHistory = () => {
 
       const namesMap: Record<string, string> = {};
       data?.forEach(profile => {
-        namesMap[profile.id] = profile.full_name || profile.email || profile.id;
+        // Priorité : full_name puis email, pas d'ID en fallback
+        if (profile.full_name) {
+          namesMap[profile.id] = profile.full_name;
+        } else if (profile.email) {
+          namesMap[profile.id] = profile.email;
+        }
+        // Si ni full_name ni email, on ne met rien dans la map
       });
 
       setUserNames(namesMap);
@@ -200,7 +206,7 @@ export const ExtractionsHistory = () => {
                     {isAdmin && (
                       <TableCell>
                         <div className="text-sm">
-                          {userNames[extraction.user_id] || extraction.user_id}
+                          {userNames[extraction.user_id] || '-'}
                         </div>
                       </TableCell>
                     )}
