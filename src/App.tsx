@@ -22,11 +22,6 @@ const AppRoutes = () => {
   // Load branding settings
   useBranding();
 
-  // Si l'utilisateur est connecté et sur /auth, rediriger vers le dashboard
-  if (isAuthenticated && location.pathname === '/auth') {
-    return <Navigate to="/" replace />;
-  }
-
   // Si en cours de chargement, afficher un loader
   if (isLoading) {
     return (
@@ -39,21 +34,26 @@ const AppRoutes = () => {
     );
   }
 
+  // Si l'utilisateur est connecté et sur /auth, rediriger vers le dashboard
+  if (isAuthenticated && location.pathname === '/auth') {
+    return <Navigate to="/" replace />;
+  }
+
+  // Si pas authentifié, rediriger vers /auth
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+
   return (
-    <ProtectedRoute>
-      <AppLayout isAdmin={isAdmin}>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/extractions" element={<Extractions />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route 
-            path="/admin" 
-            element={isAdmin ? <Admin /> : <Navigate to="/" replace />} 
-          />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </AppLayout>
-    </ProtectedRoute>
+    <AppLayout isAdmin={isAdmin}>
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/extractions" element={<Extractions />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AppLayout>
   );
 };
 

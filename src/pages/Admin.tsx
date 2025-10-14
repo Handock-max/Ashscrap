@@ -52,14 +52,40 @@ const Admin = () => {
   };
 
   useEffect(() => {
-    // Plus de vérification redondante, on fait confiance au routing dans App.tsx
-    const initAdmin = async () => {
-      setIsAdmin(true);
-      await fetchAdminStats();
-      setIsLoading(false);
+    const checkAdminAccess = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          navigate("/auth");
+          return;
+        }
+
+        // Vérification simple du rôle admin
+        const { data: roles } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .single();
+
+        if (!roles) {
+          toast.error("Accès refusé : vous n'êtes pas administrateur");
+          navigate("/");
+          return;
+        }
+
+        setIsAdmin(true);
+        await fetchAdminStats();
+      } catch (error) {
+        console.error('Erreur vérification admin:', error);
+        navigate("/");
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    initAdmin();
+    checkAdminAccess();
 
     // Subscribe to realtime updates for admin stats
     const usersChannel = supabase

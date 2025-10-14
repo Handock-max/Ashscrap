@@ -29,6 +29,7 @@ export const UserManagement = () => {
 
   const loadUsers = async () => {
     try {
+      console.log('Loading users...');
       setIsLoading(true);
       
       // Récupérer les profils d'abord
@@ -63,13 +64,6 @@ export const UserManagement = () => {
         })
       );
 
-      if (error) {
-        console.error('Error loading users:', error);
-        throw error;
-      }
-
-
-
       setUsers(usersWithRoles);
       console.log(`Loaded ${usersWithRoles.length} users`);
     } catch (error: any) {
@@ -82,6 +76,7 @@ export const UserManagement = () => {
   };
 
   useEffect(() => {
+    console.log('UserManagement mounted, loading users...');
     loadUsers();
 
     // Écouter les changements en temps réel avec des canaux uniques
@@ -304,10 +299,19 @@ export const UserManagement = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.length === 0 ? (
+              {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    {isLoading ? "Chargement des utilisateurs..." : "Aucun utilisateur trouvé"}
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Chargement des utilisateurs...
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : users.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    Aucun utilisateur trouvé
                   </TableCell>
                 </TableRow>
               ) : (
