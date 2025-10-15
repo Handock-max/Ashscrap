@@ -48,7 +48,8 @@ export const LoginForm = () => {
         if (data.user) {
           await TokenAuthService.createToken(email, data.user.id);
           toast.success("Connexion réussie !");
-          navigate("/");
+          // Forcer un refresh de la page pour que App.tsx réévalue l'auth
+          window.location.href = "/";
         }
       }
     } catch (error: any) {

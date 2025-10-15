@@ -68,8 +68,8 @@ export class TokenAuthService {
     return token;
   }
 
-  // Vérifier si le token est valide
-  static async validateToken(): Promise<{ isValid: boolean; userData?: TokenData }> {
+  // Vérifier si le token est valide (vérification rapide locale d'abord)
+  static async validateToken(skipServerCheck = false): Promise<{ isValid: boolean; userData?: TokenData }> {
     try {
       const tokenStr = sessionStorage.getItem(TOKEN_KEY);
       if (!tokenStr) {
@@ -78,35 +78,70 @@ export class TokenAuthService {
 
       const tokenData: TokenData = JSON.parse(tokenStr);
       
-      // Vérifier l'expiration
+      // Vérifier l'expiration locale
       if (Date.now() > tokenData.expiresAt) {
         this.clearToken();
         return { isValid: false };
       }
 
-      // Vérifier côté serveur
-      const { data, error } = await supabase
-        .from('user_tokens')
-        .select('*')
-        .eq('user_id', tokenData.userId)
-        .eq('token', tokenData.token)
-        .single();
+      // Si on veut éviter la vérification serveur (pour les vérifications rapides)
+      if (skipServerCheck) {
+        return { isValid: true, userData: tokenData };
+      }
 
-      if (error || !data) {
-        this.clearToken();
+      // Vérifier côté serveur seulement si nécessaire
+      try {
+        const { data, error } = await supabase
+          .from('user_tokens')
+          .select('*')
+          .eq('user_id', tokenData.userId)
+          .eq('token', tokenData.token)
+          .single();
+
+        if (error || !data) {
+          this.clearToken();
+          return { isValid: false };
+        }
+
+        // Vérifier l'expiration côté serveur
+        if (new Date(data.expires_at) < new Date()) {
+          this.clearToken();
+          await this.deleteServerToken(tokenData.userId, tokenData.token);
+          return { isValid: false };
+        }
+
+        return { isValid: true, userData: tokenData };
+      } catch (serverError) {
+        // Si erreur serveur, on fait confiance au token local s'il n'est pas expiré
+        console.warn('Erreur serveur lors de la validation, utilisation du token local:', serverError);
+        return { isValid: true, userData: tokenData };
+      }
+    } catch (error) {
+      console.error('Erreur lors de la validation du token:', error);
+      this.clearToken();
+      return { isValid: false };
+    }
+  }
+
+  // Vérification rapide locale uniquement
+  static validateTokenLocal(): { isValid: boolean; userData?: TokenData } {
+    try {
+      const tokenStr = sessionStorage.getItem(TOKEN_KEY);
+      if (!tokenStr) {
         return { isValid: false };
       }
 
-      // Vérifier l'expiration côté serveur
-      if (new Date(data.expires_at) < new Date()) {
+      const tokenData: TokenData = JSON.parse(tokenStr);
+      
+      // Vérifier l'expiration locale
+      if (Date.now() > tokenData.expiresAt) {
         this.clearToken();
-        await this.deleteServerToken(tokenData.userId, tokenData.token);
         return { isValid: false };
       }
 
       return { isValid: true, userData: tokenData };
     } catch (error) {
-      console.error('Erreur lors de la validation du token:', error);
+      console.error('Erreur lors de la validation locale du token:', error);
       this.clearToken();
       return { isValid: false };
     }

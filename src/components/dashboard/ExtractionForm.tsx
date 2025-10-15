@@ -146,7 +146,7 @@ export const ExtractionForm = () => {
       // Générer et télécharger le CSV
       const csvContent = ceoService.generateCSVContent(filteredCEOs);
       const countryLabel = countries.find(c => c.value === country)?.label || country;
-      const filename = `ceos_${countryLabel}_${new Date().toISOString().split('T')[0]}.csv`;
+      const filename = ceoService.generateFilename(countryLabel, selectedIndustries);
       
       ceoService.downloadCSV(csvContent, filename);
 

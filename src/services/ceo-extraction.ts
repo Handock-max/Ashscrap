@@ -287,15 +287,60 @@ export class CEOExtractionService {
   }
 
   /**
-   * Télécharger le CSV côté client
+   * Télécharger le CSV côté client avec encodage UTF-8 sans BOM
    */
   downloadCSV(csvContent: string, filename = 'ceos_filtered.csv'): void {
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // Créer un Blob avec encodage UTF-8 sans BOM
+    const blob = new Blob([csvContent], { 
+      type: 'text/csv;charset=utf-8;' 
+    });
 
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = filename;
     link.click();
+    
+    // Nettoyer l'URL après téléchargement
+    setTimeout(() => {
+      URL.revokeObjectURL(link.href);
+    }, 100);
+  }
+
+  /**
+   * Générer le nom de fichier selon le format : [Pays]_[Industries]_[Date et heure d'extraction].csv
+   */
+  generateFilename(country: string, industries: string[]): string {
+    // Nettoyer le nom du pays
+    const cleanCountry = country.replace(/[^a-zA-Z0-9]/g, '');
+    
+    // Nettoyer et limiter les industries (max 3 pour éviter des noms trop longs)
+    const cleanIndustries = industries
+      .slice(0, 3) // Prendre max 3 industries
+      .map(industry => industry.replace(/[^a-zA-Z0-9]/g, '').substring(0, 15)) // Max 15 chars par industrie
+      .join('-');
+    
+    // Générer la date et heure au format YYYYMMDD_HHMMSS
+    const now = new Date();
+    const dateStr = now.getFullYear().toString() + 
+                   (now.getMonth() + 1).toString().padStart(2, '0') + 
+                   now.getDate().toString().padStart(2, '0');
+    const timeStr = now.getHours().toString().padStart(2, '0') + 
+                   now.getMinutes().toString().padStart(2, '0') + 
+                   now.getSeconds().toString().padStart(2, '0');
+    
+    const dateTimeStr = `${dateStr}_${timeStr}`;
+    
+    // Construire le nom final
+    let filename = `${cleanCountry}_${cleanIndustries}_${dateTimeStr}.csv`;
+    
+    // S'assurer que le nom ne dépasse pas 255 caractères (limite système)
+    if (filename.length > 250) {
+      const maxIndustryLength = 250 - cleanCountry.length - dateTimeStr.length - 6; // 6 pour les underscores et .csv
+      const truncatedIndustries = cleanIndustries.substring(0, maxIndustryLength);
+      filename = `${cleanCountry}_${truncatedIndustries}_${dateTimeStr}.csv`;
+    }
+    
+    return filename;
   }
 
   /**
@@ -349,8 +394,10 @@ export class CEOExtractionService {
     const csvContent = this.generateCSVContent(filteredCEOs);
     const filename = `${user.user.id}/${extraction.id}.csv`;
 
-    // Créer un Blob pour l'upload
-    const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+    // Créer un Blob pour l'upload avec encodage UTF-8 sans BOM
+    const csvBlob = new Blob([csvContent], { 
+      type: 'text/csv;charset=utf-8;' 
+    });
 
     const { data: uploadData, error: uploadError } = await this.supabaseClient.storage
       .from('download')

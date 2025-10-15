@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { TokenAuthService } from '@/services/tokenAuth';
 import { toast } from 'sonner';
 
 interface TokenAuthState {
   isAuthenticated: boolean;
-  isLoading: boolean;
   isAdmin: boolean;
   userData: {
     userId: string;
@@ -13,50 +12,35 @@ interface TokenAuthState {
   } | null;
 }
 
+// Hook simplifié pour les actions d'auth (login/logout)
 export const useTokenAuth = () => {
-  const [state, setState] = useState<TokenAuthState>({
-    isAuthenticated: false,
-    isLoading: true,
-    isAdmin: false,
-    userData: null
-  });
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    try {
-      const { isValid, userData } = await TokenAuthService.validateToken();
-      
-      if (isValid && userData) {
-        setState({
-          isAuthenticated: true,
-          isLoading: false,
-          isAdmin: userData.isAdmin,
-          userData: {
-            userId: userData.userId,
-            username: userData.username,
-            isAdmin: userData.isAdmin
-          }
-        });
-      } else {
-        setState({
-          isAuthenticated: false,
-          isLoading: false,
-          isAdmin: false,
-          userData: null
-        });
-      }
-    } catch (error) {
-      console.error('Erreur lors de la vérification du token:', error);
-      setState({
-        isAuthenticated: false,
-        isLoading: false,
-        isAdmin: false,
-        userData: null
-      });
+  // État initial basé sur la vérification locale instantanée
+  const getInitialState = (): TokenAuthState => {
+    const tokenCheck = TokenAuthService.validateTokenLocal();
+    
+    if (tokenCheck.isValid && tokenCheck.userData) {
+      return {
+        isAuthenticated: true,
+        isAdmin: tokenCheck.userData.isAdmin,
+        userData: {
+          userId: tokenCheck.userData.userId,
+          username: tokenCheck.userData.username,
+          isAdmin: tokenCheck.userData.isAdmin
+        }
+      };
     }
+    
+    return {
+      isAuthenticated: false,
+      isAdmin: false,
+      userData: null
+    };
+  };
+
+  const [state, setState] = useState<TokenAuthState>(getInitialState);
+
+  const refreshAuth = () => {
+    setState(getInitialState());
   };
 
   const logout = async () => {
@@ -64,7 +48,6 @@ export const useTokenAuth = () => {
       await TokenAuthService.logout();
       setState({
         isAuthenticated: false,
-        isLoading: false,
         isAdmin: false,
         userData: null
       });
@@ -79,7 +62,6 @@ export const useTokenAuth = () => {
     TokenAuthService.clearToken();
     setState({
       isAuthenticated: false,
-      isLoading: false,
       isAdmin: false,
       userData: null
     });
@@ -90,6 +72,6 @@ export const useTokenAuth = () => {
     ...state,
     logout,
     forceLogout,
-    checkAuth
+    refreshAuth
   };
 };
