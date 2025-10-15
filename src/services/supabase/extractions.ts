@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client'
+import { TokenAuthService } from '../tokenAuth'
 import type { 
   Extraction, 
   ExtractionInsert, 
@@ -27,11 +28,11 @@ export class ExtractionsService {
    * Create a new extraction
    */
   static async createExtraction(data: CreateExtractionData): Promise<Extraction> {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('User not authenticated')
+    const userData = TokenAuthService.getUserData();
+    if (!userData) throw new Error('User not authenticated')
 
     const extractionData: ExtractionInsert = {
-      user_id: user.id,
+      user_id: userData.userId,
       country: data.country,
       company_type: data.companyType,
       company_age: data.companyAge,
@@ -53,13 +54,13 @@ export class ExtractionsService {
    * Get user's extractions with optional filters
    */
   static async getUserExtractions(filters: ExtractionFilters = {}): Promise<Extraction[]> {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('User not authenticated')
+    const userData = TokenAuthService.getUserData();
+    if (!userData) throw new Error('User not authenticated')
 
     let query = supabase
       .from('extractions')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userData.userId)
       .order('created_at', { ascending: false })
 
     if (filters.status) {

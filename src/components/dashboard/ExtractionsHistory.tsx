@@ -32,7 +32,7 @@ export const ExtractionsHistory = () => {
 
   useEffect(() => {
     const fetchExtractions = async () => {
-      if (authLoading || !userData) return;
+      if (authLoading || !userData?.userId) return;
 
       try {
 
@@ -54,7 +54,7 @@ export const ExtractionsHistory = () => {
 
         // Si admin, récupérer les noms des utilisateurs
         if (isAdmin && data && data.length > 0) {
-          const userIds = [...new Set(data.map((extraction: Extraction) => extraction.user_id))];
+          const userIds = [...new Set(data.map((extraction: Extraction) => extraction.user_id))].filter(Boolean) as string[];
           await loadUserNames(userIds);
         }
       } catch (error) {

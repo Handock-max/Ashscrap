@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { TokenAuthService } from "./tokenAuth";
 
 export interface JobTitle {
   title: string;
@@ -358,12 +359,12 @@ export class CEOExtractionService {
   /**
    * Processus complet d'extraction
    */
-  async performCompleteExtraction(country: string, filters: ExtractionFilters) {
-    const { data: user } = await this.supabaseClient.auth.getUser();
-    if (!user.user) throw new Error('Utilisateur non connecté');
+  async performCompleteExtraction(country: string, filters: ExtractionFilters, preloadedCEOs?: CEO[]) {
+    const userData = TokenAuthService.getUserData();
+    if (!userData) throw new Error('Utilisateur non connecté');
 
-    // 1. Télécharger et filtrer les CEO
-    const allCEOs = await this.downloadCountryCSV(country);
+    // 1. Utiliser les CEOs préchargés ou les télécharger
+    const allCEOs = preloadedCEOs || await this.downloadCountryCSV(country);
     const filteredCEOs = this.filterCEOs(allCEOs, filters);
 
     if (filteredCEOs.length === 0) {
@@ -374,7 +375,7 @@ export class CEOExtractionService {
     const { data: extraction, error } = await this.supabaseClient
       .from('extractions')
       .insert({
-        user_id: user.user.id,
+        user_id: userData.userId,
         country: country,
         company_type: filters.industries.join(', ') || 'all',
         file_format: 'csv',
@@ -392,7 +393,7 @@ export class CEOExtractionService {
 
     // 3. Sauvegarder le fichier dans le bucket download avec expiration 7 jours
     const csvContent = this.generateCSVContent(filteredCEOs);
-    const filename = `${user.user.id}/${extraction.id}.csv`;
+    const filename = `${userData.userId}/${extraction.id}.csv`;
 
     // Créer un Blob pour l'upload avec encodage UTF-8 sans BOM
     const csvBlob = new Blob([csvContent], { 

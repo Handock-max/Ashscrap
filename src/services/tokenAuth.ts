@@ -182,8 +182,12 @@ export class TokenAuthService {
     // Nettoyer le stockage local
     this.clearToken();
     
-    // Déconnexion Supabase
-    await supabase.auth.signOut();
+    // Déconnexion Supabase (pour nettoyer leur session aussi)
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn('Erreur lors de la déconnexion Supabase (non critique):', error);
+    }
   }
 
   // Obtenir les données utilisateur du token

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useTokenAuth } from "@/hooks/use-token-auth";
+import { TokenAuthService } from "@/services/tokenAuth";
 import { PageLayout } from "@/components/layout/AppLayout";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { BrandingSettings } from "@/components/admin/BrandingSettings";
@@ -104,8 +105,7 @@ const Admin = () => {
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await TokenAuthService.logout();
       toast.success("Déconnexion réussie");
       navigate("/auth");
     } catch (error: any) {

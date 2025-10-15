@@ -135,22 +135,17 @@ export const ExtractionForm = () => {
         jobTitles: selectedJobTitles
       };
 
-      // Filtrer les CEOs avec les données déjà chargées
-      const filteredCEOs = ceoService.filterCEOs(allCEOs, filters);
+      // Utiliser la méthode complète qui sauvegarde ET télécharge
+      const result = await ceoService.performCompleteExtraction(country, filters, allCEOs);
 
-      if (filteredCEOs.length === 0) {
-        toast.error("Aucun CEO trouvé avec ces critères");
-        return;
+      toast.success(`Extraction terminée ! ${result.totalResults} résultats trouvés`);
+
+      // Télécharger automatiquement le fichier
+      if (result.csvContent) {
+        const countryLabel = countries.find(c => c.value === country)?.label || country;
+        const filename = ceoService.generateFilename(countryLabel, selectedIndustries);
+        ceoService.downloadCSV(result.csvContent, filename);
       }
-
-      // Générer et télécharger le CSV
-      const csvContent = ceoService.generateCSVContent(filteredCEOs);
-      const countryLabel = countries.find(c => c.value === country)?.label || country;
-      const filename = ceoService.generateFilename(countryLabel, selectedIndustries);
-      
-      ceoService.downloadCSV(csvContent, filename);
-
-      toast.success(`Extraction terminée ! ${filteredCEOs.length} résultats trouvés et téléchargés`);
 
     } catch (error: any) {
       console.error('Erreur extraction:', error);
