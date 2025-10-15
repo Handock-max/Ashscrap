@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTokenAuth } from "@/hooks/use-token-auth";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -24,27 +25,16 @@ interface Extraction {
 }
 
 export const ExtractionsHistory = () => {
+  const { userData, isAdmin, isLoading: authLoading } = useTokenAuth();
   const [extractions, setExtractions] = useState<Extraction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [userNames, setUserNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchExtractions = async () => {
+      if (authLoading || !userData) return;
+
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        // Vérifier si l'utilisateur est admin
-        const { data: adminRole } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .eq("role", "admin")
-          .single();
-
-        const userIsAdmin = !!adminRole;
-        setIsAdmin(userIsAdmin);
 
         let query = supabase
           .from("extractions")
@@ -53,8 +43,8 @@ export const ExtractionsHistory = () => {
           .limit(20);
 
         // Si pas admin, filtrer par user_id
-        if (!userIsAdmin) {
-          query = query.eq("user_id", user.id).limit(10);
+        if (!isAdmin) {
+          query = query.eq("user_id", userData.userId).limit(10);
         }
 
         const { data, error } = await query;
@@ -63,8 +53,8 @@ export const ExtractionsHistory = () => {
         setExtractions(data || []);
 
         // Si admin, récupérer les noms des utilisateurs
-        if (userIsAdmin && data && data.length > 0) {
-          const userIds = [...new Set(data.map(extraction => extraction.user_id))];
+        if (isAdmin && data && data.length > 0) {
+          const userIds = [...new Set(data.map((extraction: Extraction) => extraction.user_id))];
           await loadUserNames(userIds);
         }
       } catch (error) {
@@ -74,33 +64,35 @@ export const ExtractionsHistory = () => {
       }
     };
 
-  const loadUserNames = async (userIds: string[]) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', userIds);
+    const loadUserNames = async (userIds: string[]) => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', userIds);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const namesMap: Record<string, string> = {};
-      data?.forEach(profile => {
-        // Priorité : full_name puis email, pas d'ID en fallback
-        if (profile.full_name) {
-          namesMap[profile.id] = profile.full_name;
-        } else if (profile.email) {
-          namesMap[profile.id] = profile.email;
-        }
-        // Si ni full_name ni email, on ne met rien dans la map
-      });
+        const namesMap: Record<string, string> = {};
+        data?.forEach(profile => {
+          // Priorité : full_name puis email, pas d'ID en fallback
+          if (profile.full_name) {
+            namesMap[profile.id] = profile.full_name;
+          } else if (profile.email) {
+            namesMap[profile.id] = profile.email;
+          }
+          // Si ni full_name ni email, on ne met rien dans la map
+        });
 
-      setUserNames(namesMap);
-    } catch (error) {
-      console.error('Erreur chargement noms utilisateurs:', error);
+        setUserNames(namesMap);
+      } catch (error) {
+        console.error('Erreur chargement noms utilisateurs:', error);
+      }
+    };
+
+    if (!authLoading) {
+      fetchExtractions();
     }
-  };
-
-    fetchExtractions();
 
     // Subscribe to realtime updates
     const channel = supabase
@@ -113,7 +105,9 @@ export const ExtractionsHistory = () => {
           table: "extractions",
         },
         () => {
-          fetchExtractions();
+          if (!authLoading) {
+            fetchExtractions();
+          }
         }
       )
       .subscribe();
@@ -121,7 +115,7 @@ export const ExtractionsHistory = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [authLoading, userData, isAdmin]);
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; label: string }> = {
@@ -133,18 +127,18 @@ export const ExtractionsHistory = () => {
     };
 
     const config = variants[status] || variants.pending;
-    return <Badge variant={config.variant}><span>{config.label}</span></Badge>;
+    return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
   const formatExtractionType = (extraction: Extraction) => {
     const countryName = extraction.country;
     const industries = extraction.filters?.industries;
-    
+
     if (industries && Array.isArray(industries) && industries.length > 0) {
       const industryCount = industries.length;
       return `${countryName} - ${industryCount} secteur${industryCount > 1 ? 's' : ''}`;
     }
-    
+
     return `${countryName} - ${extraction.company_type || 'Tous secteurs'}`;
   };
 
@@ -163,8 +157,8 @@ export const ExtractionsHistory = () => {
       <CardHeader>
         <CardTitle className="text-2xl">Historique des extractions</CardTitle>
         <CardDescription>
-          {isAdmin 
-            ? "Les 20 dernières extractions de tous les utilisateurs" 
+          {isAdmin
+            ? "Les 20 dernières extractions de tous les utilisateurs"
             : "Vos 10 dernières extractions"
           }
         </CardDescription>

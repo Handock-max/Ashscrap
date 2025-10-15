@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useTokenAuth } from "@/hooks/use-token-auth";
 import { PageLayout } from "@/components/layout/AppLayout";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { BrandingSettings } from "@/components/admin/BrandingSettings";
@@ -13,8 +14,8 @@ import { toast } from "sonner";
 
 const Admin = () => {
   const navigate = useNavigate();
+  const { isAdmin, isLoading: authLoading, userData } = useTokenAuth();
   const [isLoading, setIsLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalAdmins: 0,
@@ -53,29 +54,20 @@ const Admin = () => {
 
   useEffect(() => {
     const checkAdminAccess = async () => {
+      if (authLoading) return;
+      
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
+        if (!userData) {
           navigate("/auth");
           return;
         }
 
-        // Vérification simple du rôle admin
-        const { data: roles } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .eq("role", "admin")
-          .single();
-
-        if (!roles) {
+        if (!isAdmin) {
           toast.error("Accès refusé : vous n'êtes pas administrateur");
           navigate("/");
           return;
         }
 
-        setIsAdmin(true);
         await fetchAdminStats();
       } catch (error) {
         console.error('Erreur vérification admin:', error);
@@ -108,7 +100,7 @@ const Admin = () => {
       supabase.removeChannel(rolesChannel);
       supabase.removeChannel(extractionsChannel);
     };
-  }, [navigate]);
+  }, [authLoading, userData, isAdmin, navigate]);
 
   const handleLogout = async () => {
     try {

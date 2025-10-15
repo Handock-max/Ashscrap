@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { UserPlus, Trash2, Key, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useTokenAuth } from "@/hooks/use-token-auth";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 type UserWithRole = {
@@ -20,6 +21,7 @@ type UserWithRole = {
 };
 
 export const UserManagement = () => {
+  const { isAdmin, userData } = useTokenAuth();
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newEmail, setNewEmail] = useState("");

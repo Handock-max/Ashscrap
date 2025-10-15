@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Users, 
-  ChevronLeft, 
+import {
+  Home,
+  Users,
+  ChevronLeft,
   ChevronRight,
   Menu,
   X,
@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui-store';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useAuth } from '@/hooks/use-auth';
+import { useTokenAuth } from '@/hooks/use-token-auth';
 
 // Logo depuis le dossier public pour un chargement optimisé
 const LogoImage = '/images/Logo.png';
@@ -66,7 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
   const location = useLocation();
   const { sidebarCollapsed, toggleSidebar, brandingSettings } = useUIStore();
   const isMobile = useIsMobile();
-  const { user, profile } = useAuth();
+  const { userData, isLoading } = useTokenAuth();
 
   // Fonction pour obtenir les initiales du nom
   const getInitials = (name: string | null | undefined, email: string) => {
@@ -78,13 +78,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
 
   // Fonction pour obtenir le nom d'affichage
   const getDisplayName = () => {
-    if (profile?.full_name) {
-      return profile.full_name;
+    if (userData?.username) {
+      return userData.username;
     }
-    return user?.email?.split('@')[0] || 'Utilisateur';
+    return 'Utilisateur';
   };
 
-  const filteredItems = navigationItems.filter(item => 
+  const filteredItems = navigationItems.filter(item =>
     !item.adminOnly || (item.adminOnly && isAdmin)
   );
 
@@ -92,7 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
     <>
       {/* Overlay mobile */}
       {!sidebarCollapsed && isMobile && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40"
           onClick={toggleSidebar}
         />
@@ -111,9 +111,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
         {/* Header */}
         <div className="border-b p-4">
           <div className="flex items-center gap-3">
-            <img 
-              src={LogoImage} 
-              alt="Ash Scrap" 
+            <img
+              src={LogoImage}
+              alt="Ash Scrap"
               className="h-8 w-8 object-contain flex-shrink-0"
             />
             {!sidebarCollapsed && (
@@ -160,16 +160,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
         {/* Footer avec utilisateur et toggle */}
         <div className="border-t p-4 space-y-3">
           {/* Informations utilisateur */}
-          {user && (
+          {!isLoading && userData && (
             <div className={cn(
               "flex items-center gap-3 p-2 rounded-lg bg-muted/50",
               sidebarCollapsed && "justify-center"
             )}>
               {/* Avatar avec initiales */}
               <div className="h-8 w-8 rounded-full bg-blue-600 text-white dark:bg-blue-600 dark:text-white flex items-center justify-center text-sm font-medium flex-shrink-0">
-                {getInitials(profile?.full_name, user.email || '')}
+                {getInitials(userData.username, userData.username)}
               </div>
-              
+
               {/* Nom et email (visible seulement quand étendu) */}
               {!sidebarCollapsed && (
                 <div className="flex flex-col min-w-0">
@@ -177,7 +177,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
                     {getDisplayName()}
                   </span>
                   <span className="text-xs text-muted-foreground truncate">
-                    {user.email}
+                    {userData.username}
                   </span>
                   {isAdmin && (
                     <span className="text-xs text-primary font-medium">
@@ -243,7 +243,7 @@ export const SidebarWrapper: React.FC<SidebarWrapperProps> = ({ children, isAdmi
   return (
     <div className="flex min-h-screen w-full">
       <Sidebar isAdmin={isAdmin} />
-      <main 
+      <main
         className={cn(
           "flex-1 overflow-hidden transition-all duration-300",
           !isMobile && !sidebarCollapsed && "ml-64",
