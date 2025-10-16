@@ -1,0 +1,69 @@
+/* Variables CSS pour la personnalisation des couleurs */
+:root {
+  --primary-color: #eab308;
+  --secondary-color: #2563eb;
+  --color-primary: #eab308;
+  --color-secondary: #2563eb;
+}
+
+/* Classes utilitaires pour utiliser les couleurs personnalisées */
+.text-custom-primary {
+  color: var(--primary-color) !important;
+}
+
+.text-custom-secondary {
+  color: var(--secondary-color) !important;
+}
+
+.bg-custom-primary {
+  background-color: var(--primary-color) !important;
+}
+
+.bg-custom-secondary {
+  background-color: var(--secondary-color) !important;
+}
+
+.border-custom-primary {
+  border-color: var(--primary-color) !important;
+}
+
+.border-custom-secondary {
+  border-color: var(--secondary-color) !important;
+}
+
+/* Styles pour les boutons avec couleurs personnalisées */
+.btn-custom-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: white;
+}
+
+.btn-custom-primary:hover {
+  background-color: color-mix(in srgb, var(--primary-color) 90%, black);
+  border-color: color-mix(in srgb, var(--primary-color) 90%, black);
+}
+
+.btn-custom-secondary {
+  background-color: var(--secondary-color);
+  border-color: var(--secondary-color);
+  color: white;
+}
+
+.btn-custom-secondary:hover {
+  background-color: color-mix(in srgb, var(--secondary-color) 90%, black);
+  border-color: color-mix(in srgb, var(--secondary-color) 90%, black);
+}
+
+/* Gradient avec couleurs personnalisées */
+.gradient-custom {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+}
+
+/* Override pour certains éléments Tailwind */
+.custom-primary {
+  color: var(--primary-color) !important;
+}
+
+.custom-secondary {
+  color: var(--secondary-color) !important;
+}

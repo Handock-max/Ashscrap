@@ -1,59 +1,101 @@
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUIStore } from '@/stores/ui-store';
+import { TokenAuthService } from '@/services/tokenAuth';
+import { getThemeById } from '@/data/themes';
 
 export const useBranding = () => {
   const { setBrandingSettings, brandingSettings } = useUIStore();
 
   useEffect(() => {
-    const loadBrandingSettings = async () => {
+    const loadUserBrandingSettings = async () => {
       try {
-        const { data } = await supabase
-          .from('app_settings')
+        // Récupérer l'utilisateur connecté
+        const userData = TokenAuthService.getUserData();
+        if (!userData) return;
+
+        // Charger les paramètres personnalisés de l'utilisateur
+        const { data: userSettings } = await supabase
+          .from('user_branding_settings')
           .select('*')
+          .eq('user_id', userData.userId)
           .single();
 
-        if (data) {
-          const settings = {
-            companyName: data.company_name || 'Ash Scrap',
-            primaryColor: data.primary_color || '#eab308',
-            secondaryColor: data.secondary_color || '#2563eb',
-            logoUrl: data.logo_url || ''
+        let settings;
+        
+        if (userSettings) {
+          // Utiliser les paramètres personnalisés de l'utilisateur
+          settings = {
+            companyName: userSettings.company_name || 'Ash Scrap',
+            primaryColor: userSettings.primary_color || '#eab308',
+            secondaryColor: userSettings.secondary_color || '#2563eb',
+            logoUrl: userSettings.logo_url || ''
           };
-
-          setBrandingSettings(settings);
-
-          // Apply CSS custom properties
-          const root = document.documentElement;
-          root.style.setProperty('--primary', settings.primaryColor);
-          root.style.setProperty('--secondary', settings.secondaryColor);
+          
+          console.log(`Thème "${userSettings.theme_preset || 'default'}" chargé pour l'utilisateur`);
+        } else {
+          // Utiliser les paramètres par défaut
+          settings = {
+            companyName: 'Ash Scrap',
+            primaryColor: '#eab308',
+            secondaryColor: '#2563eb',
+            logoUrl: ''
+          };
         }
+
+        setBrandingSettings(settings);
+
+        // Appliquer les couleurs immédiatement via CSS custom properties
+        const root = document.documentElement;
+        root.style.setProperty('--primary-color', settings.primaryColor);
+        root.style.setProperty('--secondary-color', settings.secondaryColor);
+        
+        // Appliquer aussi aux variables Tailwind si elles existent
+        root.style.setProperty('--color-primary', settings.primaryColor);
+        root.style.setProperty('--color-secondary', settings.secondaryColor);
+
+        console.log('Paramètres de branding chargés pour l\'utilisateur:', settings);
+        
       } catch (error) {
-        console.log('No branding settings found, using defaults');
+        console.log('Aucun paramètre de branding personnalisé trouvé, utilisation des valeurs par défaut');
+        
+        // Paramètres par défaut
+        const defaultSettings = {
+          companyName: 'Ash Scrap',
+          primaryColor: '#eab308',
+          secondaryColor: '#2563eb',
+          logoUrl: ''
+        };
+        
+        setBrandingSettings(defaultSettings);
       }
     };
 
-    loadBrandingSettings();
+    loadUserBrandingSettings();
 
-    // Subscribe to changes in app_settings
-    const channel = supabase
-      .channel('branding-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'app_settings',
-        },
-        () => {
-          loadBrandingSettings();
-        }
-      )
-      .subscribe();
+    // S'abonner aux changements des paramètres utilisateur
+    const userData = TokenAuthService.getUserData();
+    if (userData) {
+      const channel = supabase
+        .channel('user-branding-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_branding_settings',
+            filter: `user_id=eq.${userData.userId}`
+          },
+          () => {
+            loadUserBrandingSettings();
+          }
+        )
+        .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [setBrandingSettings]);
 
   return brandingSettings;
