@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAuth } from "@/hooks/use-auth";
+import { useTokenAuth } from "@/hooks/use-token-auth";
 import { useUIStore } from "@/stores/ui-store";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -15,14 +15,44 @@ import { Loader2, LogOut, User, Lock, Mail, Palette, Sun, Moon, Monitor } from "
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, profile, refreshUser, signOut } = useAuth();
+  const { userData, logout, refreshAuth } = useTokenAuth();
   const { theme, setTheme } = useUIStore();
+  
+  // États pour récupérer les données du profil Supabase
+  const [profile, setProfile] = useState<any>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   
   // États pour le profil
-  const [fullName, setFullName] = useState(profile?.full_name || '');
+  const [fullName, setFullName] = useState('');
+  
+  // Charger le profil depuis Supabase
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!userData?.userId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userData.userId)
+          .single();
+          
+        if (error) throw error;
+        
+        setProfile(data);
+        setFullName(data?.full_name || '');
+      } catch (error) {
+        console.error('Erreur lors du chargement du profil:', error);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+    
+    loadProfile();
+  }, [userData?.userId]);
   
   // États pour le mot de passe
   const [currentPassword, setCurrentPassword] = useState('');
@@ -31,8 +61,7 @@ const Profile = () => {
 
   const handleLogout = async () => {
     try {
-      await signOut();
-      toast.success("Déconnexion réussie");
+      await logout();
       navigate("/auth");
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de la déconnexion");
@@ -47,11 +76,16 @@ const Profile = () => {
       const { error } = await supabase
         .from('profiles')
         .update({ full_name: fullName })
-        .eq('id', user?.id);
+        .eq('id', userData?.userId);
 
       if (error) throw error;
 
-      await refreshUser();
+      // Mettre à jour le profil local
+      setProfile(prev => ({ ...prev, full_name: fullName }));
+      
+      // Rafraîchir l'authentification pour mettre à jour la sidebar
+      refreshAuth();
+      
       toast.success("Profil mis à jour avec succès !");
     } catch (error: any) {
       toast.error(error.message || "Erreur lors de la mise à jour du profil");
@@ -115,7 +149,7 @@ const Profile = () => {
               <div className="h-12 w-12 rounded-full bg-blue-600 text-white flex items-center justify-center text-lg font-medium">
                 {profile?.full_name 
                   ? profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-                  : user?.email?.slice(0, 2).toUpperCase()
+                  : userData?.username?.slice(0, 2).toUpperCase()
                 }
               </div>
               <div>
@@ -139,7 +173,7 @@ const Profile = () => {
               <Input
                 id="email"
                 type="email"
-                value={user?.email || ''}
+                value={userData?.username || ''}
                 disabled
                 className="bg-muted"
               />

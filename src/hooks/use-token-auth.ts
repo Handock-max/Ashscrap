@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TokenAuthService } from '@/services/tokenAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface TokenAuthState {
@@ -10,6 +11,7 @@ interface TokenAuthState {
     userId: string;
     username: string;
     isAdmin: boolean;
+    fullName?: string;
   } | null;
 }
 
@@ -22,44 +24,68 @@ export const useTokenAuth = () => {
     userData: null
   });
 
-  useEffect(() => {
-    // Vérification instantanée au montage
-    const tokenCheck = TokenAuthService.validateTokenLocal();
-    
-    if (tokenCheck.isValid && tokenCheck.userData) {
-      setState({
-        isAuthenticated: true,
-        isLoading: false,
-        isAdmin: tokenCheck.userData.isAdmin,
-        userData: {
-          userId: tokenCheck.userData.userId,
-          username: tokenCheck.userData.username,
-          isAdmin: tokenCheck.userData.isAdmin
-        }
-      });
-    } else {
-      setState({
-        isAuthenticated: false,
-        isLoading: false,
-        isAdmin: false,
-        userData: null
-      });
+  // Fonction pour enrichir les données utilisateur avec le profil Supabase
+  const enrichUserData = async (tokenData: any) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', tokenData.userId)
+        .single();
+        
+      return {
+        userId: tokenData.userId,
+        username: tokenData.username,
+        isAdmin: tokenData.isAdmin,
+        fullName: profile?.full_name || null
+      };
+    } catch (error) {
+      console.warn('Erreur lors du chargement du profil:', error);
+      return {
+        userId: tokenData.userId,
+        username: tokenData.username,
+        isAdmin: tokenData.isAdmin,
+        fullName: null
+      };
     }
+  };
+
+  useEffect(() => {
+    const initAuth = async () => {
+      // Vérification instantanée au montage
+      const tokenCheck = TokenAuthService.validateTokenLocal();
+      
+      if (tokenCheck.isValid && tokenCheck.userData) {
+        const enrichedUserData = await enrichUserData(tokenCheck.userData);
+        setState({
+          isAuthenticated: true,
+          isLoading: false,
+          isAdmin: tokenCheck.userData.isAdmin,
+          userData: enrichedUserData
+        });
+      } else {
+        setState({
+          isAuthenticated: false,
+          isLoading: false,
+          isAdmin: false,
+          userData: null
+        });
+      }
+    };
+    
+    initAuth();
   }, []);
 
-  const refreshAuth = () => {
+  const refreshAuth = async () => {
     const tokenCheck = TokenAuthService.validateTokenLocal();
     
     if (tokenCheck.isValid && tokenCheck.userData) {
+      const enrichedUserData = await enrichUserData(tokenCheck.userData);
       setState({
         isAuthenticated: true,
         isLoading: false,
         isAdmin: tokenCheck.userData.isAdmin,
-        userData: {
-          userId: tokenCheck.userData.userId,
-          username: tokenCheck.userData.username,
-          isAdmin: tokenCheck.userData.isAdmin
-        }
+        userData: enrichedUserData
       });
     } else {
       setState({

@@ -74,15 +74,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
   }, [sidebarCollapsed, isMobile]);
 
   // Fonction pour obtenir les initiales du nom
-  const getInitials = (name: string | null | undefined, email: string) => {
-    if (name) {
-      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const getInitials = (fullName: string | null | undefined, email: string) => {
+    if (fullName) {
+      return fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     }
     return email.slice(0, 2).toUpperCase();
   };
 
   // Fonction pour obtenir le nom d'affichage
   const getDisplayName = () => {
+    if (userData?.fullName) {
+      return userData.fullName;
+    }
     if (userData?.username) {
       return userData.username;
     }
@@ -177,7 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
             )}>
               {/* Avatar avec initiales */}
               <div className="h-8 w-8 rounded-full bg-blue-600 text-white dark:bg-blue-600 dark:text-white flex items-center justify-center text-sm font-medium flex-shrink-0">
-                {getInitials(userData.username, userData.username)}
+                {getInitials(userData.fullName, userData.username)}
               </div>
 
               {/* Nom et email (visible seulement quand étendu) */}
