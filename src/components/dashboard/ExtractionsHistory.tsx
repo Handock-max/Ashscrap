@@ -20,6 +20,7 @@ interface Extraction {
   total_results: number | null;
   created_at: string;
   completed_at: string | null;
+  expires_at: string | null;
   filters: any;
   user_id: string;
 }
@@ -142,6 +143,11 @@ export const ExtractionsHistory = () => {
     return `${countryName} - ${extraction.company_type || 'Tous secteurs'}`;
   };
 
+  const isExpired = (expiresAt: string | null) => {
+    if (!expiresAt) return false;
+    return new Date(expiresAt) < new Date();
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -216,12 +222,19 @@ export const ExtractionsHistory = () => {
                     <TableCell>{getStatusBadge(extraction.status)}</TableCell>
                     <TableCell className="text-right">
                       {extraction.status === 'completed' && extraction.file_url ? (
-                        <Button size="sm" variant="outline" asChild>
-                          <a href={extraction.file_url} download>
+                        isExpired(extraction.expires_at) ? (
+                          <Button size="sm" variant="outline" disabled>
                             <Download className="h-4 w-4 mr-2" />
-                            Télécharger
-                          </a>
-                        </Button>
+                            Expiré
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="outline" asChild>
+                            <a href={extraction.file_url} download>
+                              <Download className="h-4 w-4 mr-2" />
+                              Télécharger
+                            </a>
+                          </Button>
+                        )
                       ) : extraction.status === 'failed' ? (
                         <Button size="sm" variant="outline" disabled>
                           Échec
