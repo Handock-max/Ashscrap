@@ -1,38 +1,19 @@
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { LogOut, Settings, Home } from "lucide-react";
-import { toast } from "sonner";
-import { useState, useEffect } from "react";
+import { useTokenAuth } from "@/hooks/use-token-auth";
 
 export const Header = () => {
   const navigate = useNavigate();
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .eq("role", "admin")
-          .single();
-        setIsAdmin(!!data);
-      }
-    };
-    checkAdmin();
-  }, []);
+  const { userData, logout, isAdmin } = useTokenAuth();
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      toast.success("Déconnexion réussie");
-      navigate("/auth");
+      await logout();
+      // Utiliser window.location pour forcer la redirection
+      window.location.href = "/auth";
     } catch (error: any) {
-      toast.error(error.message || "Erreur lors de la déconnexion");
+      console.error('Erreur lors de la déconnexion:', error);
     }
   };
 

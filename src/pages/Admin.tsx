@@ -15,7 +15,7 @@ import { toast } from "sonner";
 
 const Admin = () => {
   const navigate = useNavigate();
-  const { isAdmin, isLoading: authLoading, userData } = useTokenAuth();
+  const { isAdmin, isLoading: authLoading, userData, logout } = useTokenAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -105,11 +105,11 @@ const Admin = () => {
 
   const handleLogout = async () => {
     try {
-      await TokenAuthService.logout();
-      toast.success("Déconnexion réussie");
-      navigate("/auth");
+      await logout();
+      // Utiliser window.location pour forcer la redirection
+      window.location.href = "/auth";
     } catch (error: any) {
-      toast.error(error.message || "Erreur lors de la déconnexion");
+      console.error('Erreur lors de la déconnexion:', error);
     }
   };
 

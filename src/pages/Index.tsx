@@ -112,9 +112,10 @@ const Index = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      navigate("/auth");
+      // Utiliser window.location pour forcer la redirection
+      window.location.href = "/auth";
     } catch (error: any) {
-      toast.error(error.message || "Erreur lors de la déconnexion");
+      console.error('Erreur lors de la déconnexion:', error);
     }
   };
 
