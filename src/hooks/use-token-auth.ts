@@ -72,18 +72,21 @@ export const useTokenAuth = () => {
   };
 
   const logout = async () => {
+    // Mettre à jour l'état immédiatement pour une UX plus fluide
+    setState({
+      isAuthenticated: false,
+      isLoading: false,
+      isAdmin: false,
+      userData: null
+    });
+
     try {
+      // Déconnexion en arrière-plan
       await TokenAuthService.logout();
-      setState({
-        isAuthenticated: false,
-        isLoading: false,
-        isAdmin: false,
-        userData: null
-      });
       toast.success("Vous avez été déconnecté");
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
-      toast.error("Erreur lors de la déconnexion");
+      // Ne pas afficher d'erreur car l'utilisateur est déjà déconnecté côté client
     }
   };
 

@@ -170,24 +170,26 @@ export class TokenAuthService {
   static async logout(): Promise<void> {
     const tokenStr = sessionStorage.getItem(TOKEN_KEY);
     
+    // Nettoyer le stockage local immédiatement
+    this.clearToken();
+    
+    // Opérations de nettoyage en arrière-plan (non bloquantes)
     if (tokenStr) {
       try {
         const tokenData: TokenData = JSON.parse(tokenStr);
-        await this.deleteServerToken(tokenData.userId, tokenData.token);
+        // Suppression du token serveur en arrière-plan
+        this.deleteServerToken(tokenData.userId, tokenData.token).catch(error => {
+          console.warn('Erreur lors de la suppression du token serveur (non critique):', error);
+        });
       } catch (error) {
-        console.error('Erreur lors de la déconnexion:', error);
+        console.warn('Erreur lors du parsing du token (non critique):', error);
       }
     }
-
-    // Nettoyer le stockage local
-    this.clearToken();
     
-    // Déconnexion Supabase (pour nettoyer leur session aussi)
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
+    // Déconnexion Supabase en arrière-plan
+    supabase.auth.signOut().catch(error => {
       console.warn('Erreur lors de la déconnexion Supabase (non critique):', error);
-    }
+    });
   }
 
   // Obtenir les données utilisateur du token

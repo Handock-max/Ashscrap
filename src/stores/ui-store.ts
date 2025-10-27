@@ -32,7 +32,7 @@ class UIStore {
     this.loadFromStorage();
     // Apply theme on initialization
     this.applyTheme(this.state.theme);
-    
+
     // Listen for system theme changes
     if (typeof window !== 'undefined') {
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -78,24 +78,35 @@ class UIStore {
   }
 
   toggleSidebar() {
-    this.state.sidebarCollapsed = !this.state.sidebarCollapsed;
+    const newCollapsed = !this.state.sidebarCollapsed;
+    console.log('Toggling sidebar:', this.state.sidebarCollapsed, '->', newCollapsed);
+    this.state = {
+      ...this.state,
+      sidebarCollapsed: newCollapsed
+    };
     this.notify();
   }
 
   setSidebarCollapsed(collapsed: boolean) {
-    this.state.sidebarCollapsed = collapsed;
+    this.state = {
+      ...this.state,
+      sidebarCollapsed: collapsed
+    };
     this.notify();
   }
 
   setTheme(theme: 'light' | 'dark' | 'system') {
-    this.state.theme = theme;
+    this.state = {
+      ...this.state,
+      theme: theme
+    };
     this.applyTheme(theme);
     this.notify();
   }
 
   private applyTheme(theme: 'light' | 'dark' | 'system') {
     const root = window.document.documentElement;
-    
+
     if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       root.classList.add('dark');
     } else {
@@ -104,7 +115,10 @@ class UIStore {
   }
 
   setBrandingSettings(settings: BrandingSettings) {
-    this.state.brandingSettings = settings;
+    this.state = {
+      ...this.state,
+      brandingSettings: settings
+    };
     this.notify();
   }
 }
@@ -112,11 +126,13 @@ class UIStore {
 const uiStore = new UIStore();
 
 export const useUIStore = () => {
-  const [state, setState] = useState(uiStore.getState());
+  const [state, setState] = useState(() => uiStore.getState());
 
   useEffect(() => {
     const unsubscribe = uiStore.subscribe(() => {
-      setState(uiStore.getState());
+      const newState = uiStore.getState();
+      console.log('UI Store state updated:', newState);
+      setState(newState);
     });
     return unsubscribe;
   }, []);

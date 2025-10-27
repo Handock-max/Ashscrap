@@ -68,6 +68,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
   const isMobile = useIsMobile();
   const { userData, isLoading } = useTokenAuth();
 
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('Sidebar render - collapsed:', sidebarCollapsed, 'isMobile:', isMobile);
+  }, [sidebarCollapsed, isMobile]);
+
   // Fonction pour obtenir les initiales du nom
   const getInitials = (name: string | null | undefined, email: string) => {
     if (name) {
@@ -107,6 +112,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
           isMobile && sidebarCollapsed && "-translate-x-full",
           className
         )}
+        data-collapsed={sidebarCollapsed}
+        style={{
+          // Force immediate visual feedback
+          width: sidebarCollapsed ? '4rem' : '16rem'
+        }}
       >
         {/* Header */}
         <div className="border-b p-4">
@@ -193,7 +203,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isAdmin = false }) 
           <Button
             variant="ghost"
             size="sm"
-            onClick={toggleSidebar}
+            onClick={() => {
+              console.log('Toggle button clicked, current state:', sidebarCollapsed);
+              toggleSidebar();
+            }}
             className={cn(
               "w-full",
               sidebarCollapsed && "px-2"

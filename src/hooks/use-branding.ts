@@ -12,18 +12,37 @@ export const useBranding = () => {
       try {
         // Récupérer l'utilisateur connecté
         const userData = TokenAuthService.getUserData();
-        if (!userData) return;
+        if (!userData) {
+          // Si pas d'utilisateur, utiliser les paramètres par défaut
+          const defaultSettings = {
+            companyName: 'Ash Scrap',
+            primaryColor: '#eab308',
+            secondaryColor: '#2563eb',
+            logoUrl: ''
+          };
+          setBrandingSettings(defaultSettings);
+          return;
+        }
 
         // Charger les paramètres personnalisés de l'utilisateur
-        const { data: userSettings } = await supabase
+        const { data: userSettings, error } = await supabase
           .from('user_branding_settings')
           .select('*')
           .eq('user_id', userData.userId)
-          .single();
+          .maybeSingle(); // Utiliser maybeSingle() au lieu de single() pour éviter les erreurs si pas de résultat
 
         let settings;
         
-        if (userSettings) {
+        // Si erreur de requête (table n'existe pas, permissions, etc.), utiliser les valeurs par défaut
+        if (error) {
+          console.warn('Erreur lors du chargement des paramètres de branding:', error.message);
+          settings = {
+            companyName: 'Ash Scrap',
+            primaryColor: '#eab308',
+            secondaryColor: '#2563eb',
+            logoUrl: ''
+          };
+        } else if (userSettings) {
           // Utiliser les paramètres personnalisés de l'utilisateur
           settings = {
             companyName: userSettings.company_name || 'Ash Scrap',
